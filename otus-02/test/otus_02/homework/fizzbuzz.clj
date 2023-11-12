@@ -2,14 +2,13 @@
   (:require
    [clojure.test :refer :all]))
 
-
 (defn fizz-buzz [n]
-  "Создайте программу, которая выводит числа от 1 до n.
-   - Если число делится на 3, выведите 'Fizz';
-   - если число делится на 5, выведите 'Buzz';
-   - если число делится и на 3 и на 5, выведите 'FizzBuzz'."
-  "implement me")
-
+  (map
+   #(cond
+      (true? (and (= 0 (mod % 3)) (= 0 (mod % 5)))) "FizzBuzz"
+      (= 0 (mod % 3)) "Fizz"
+      (= 0 (mod % 5)) "Buzz"
+      :else %) (range 1 (+ n 1) 1)))
 
 (deftest fizz-buzz-test
   (is (= (fizz-buzz 10)
