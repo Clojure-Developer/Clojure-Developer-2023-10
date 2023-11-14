@@ -9,7 +9,7 @@
           string/lower-case
           (map int)
           (filter #(<= 97  %  122)) ;;<= \a % \z
-          set
+          set ;; убираем дубликаты
           (apply +))))
 
 (comment
