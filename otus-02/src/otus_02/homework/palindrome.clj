@@ -2,6 +2,6 @@
   (:require [clojure.string :as string]))
 
 (defn is-palindrome [test-string]
-  (let [normal-str (string/trim (string/upper-case (string/replace test-string #"\W" "")))
-        invert-str (string/reverse (string/trim (string/upper-case (string/replace test-string #"\W" ""))))] (= normal-str invert-str)))
- 
+  (let [normal-str (string/upper-case (string/replace test-string #"[^a-zA-Z0-9]" ""))
+        invert-str (string/reverse normal-str)] (= normal-str invert-str)))
+
