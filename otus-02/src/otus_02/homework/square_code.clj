@@ -50,17 +50,14 @@
 "sseoau "
 
 (defn encode-string [input]
-  (let [x (->> input string/lower-case
-               (filter #(Character/isLetter %)))]
-    (->> x 
-         count 
-         math/sqrt 
-         (#(list (math/floor %) (math/round %) (math/ceil %))) 
-         pop
-         (#(list (inc (first %)) (second %)))
-         (#(repeat (first %) (range (second %))))
+  (let [st    (->> input string/lower-case
+                   (filter #(Character/isLetter %)))
+        sqr   (math/sqrt (count st))
+        rnd   (math/round sqr)
+        [x y] (if (= (int (math/ceil sqr)) rnd) [(inc rnd) rnd] [rnd rnd])]
+    (->> (repeat (inc x) (range (inc y)))
          flatten
-         (map vector (concat x (repeat \space)))
+         (map vector (concat st (repeat \space)))
          (sort-by second)
          (map first) 
          drop-last 
@@ -69,12 +66,12 @@
 (defn decode-string [input]
   (->> (range)
        (map #(vector % %))
-       (apply concat) 
+       flatten 
        (#(map vector % (drop 1 %)))
        (drop-while #(< (reduce * %) (count input)))
        first 
        (#(repeat (first %) (range (second %))))
-       flatten 
+       flatten
        (map vector (concat input (repeat \space)))
        (sort-by second ) 
        (map first) 
