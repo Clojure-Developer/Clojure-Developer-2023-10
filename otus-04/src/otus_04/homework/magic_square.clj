@@ -26,15 +26,13 @@
   Магический квадрат должен быть заполнен так, что суммы всех вертикалей,
   горизонталей и диагоналей длиной в n должны быть одинаковы."
   [n]
-  (fill-matrix n (* n n) 1 0 (int  (/ (dec n) 2)) (vec (repeat n (vec (repeat n 0)))))
-  )
+  (fill-matrix n (* n n) 1 0 (int  (/ (dec n) 2)) (vec (repeat n (vec (repeat n 0))))))
 
 
 (comment
-  (magic-square 3) 
-  (magic-square 1) 
+  (magic-square 3)
+  (magic-square 1)
   (magic-square 5)
   (fill-matrix 3 9 1 0 1 [[0 0 0] [0 0 0] [0 0 0]])
-  (assoc-in [[0 0 0] [0 0 0] [0 0 0]]  [1 1] 5)
-  )
+  (assoc-in [[0 0 0] [0 0 0] [0 0 0]]  [1 1] 5))
 

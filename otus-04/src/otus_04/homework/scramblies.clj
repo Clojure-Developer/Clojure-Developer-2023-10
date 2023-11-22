@@ -6,10 +6,9 @@
 (defn scramble?
   "Вариант 1"
   [letters word]
-  (let [
-        f1 (frequencies letters)
+  (let [f1 (frequencies letters)
         f2 (frequencies word)
-        f2-size (count f2)true-count
+        f2-size (count f2) true-count
         true-count (count (for [[k v] f2 :let [y (<= v (get f1 k 0))] :while (true? y)] y))]
     (= f2-size true-count)))
 
