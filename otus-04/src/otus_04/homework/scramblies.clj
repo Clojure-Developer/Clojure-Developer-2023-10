@@ -7,6 +7,9 @@
   "Функция возвращает true, если из букв в строке letters
   можно составить слово word."
   [letters word]
-  (let [fun (fn [x] (->> (set word) (map #(get (frequencies x) % 0))))
-  [x y] (->> [letters word] (map fun))]
-  (->> (map >= x y) (reduce #(and %1 %2) true))))
+    (let [f-freq  (fn [x] (->> (set word)
+                               (map #(get (frequencies x) % 0))))
+         [x y]    (->> [letters word]
+                       (map f-freq))]
+      (->> (map >= x y)
+           (reduce #(and %1 %2) true))))
