@@ -64,16 +64,16 @@
          (apply str))))
 
 (defn decode-string [input]
-  (->> (range)
-       (map #(vector % %))
-       flatten 
-       (#(map vector % (drop 1 %)))
-       (drop-while #(< (reduce * %) (count input)))
-       first 
-       (#(repeat (first %) (range (second %))))
-       flatten
-       (map vector (concat input (repeat \space)))
-       (sort-by second ) 
-       (map first) 
-       (apply str) 
-       (string/trim)))
+  (let [[x y]  (->> (range)
+                    (map #(vector % %))
+                    flatten 
+                    (#(map vector % (drop 1 %)))
+                    (drop-while #(< (reduce * %) (count input)))
+                    first)]
+    (->> (repeat x (range y))
+         flatten
+         (map vector (concat input (repeat \space)))
+         (sort-by second) 
+         (map first) 
+         (apply str) 
+         (string/trim))))
