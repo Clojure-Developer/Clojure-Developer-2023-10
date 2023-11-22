@@ -50,24 +50,33 @@
 "sseoau "
 
 (defn encode-string [input]
-(let [x (->> input string/lower-case (filter #(Character/isLetter %)))]
-(->> x count math/sqrt 
-(#(list (math/floor %) (math/round %) (math/ceil %))) 
-pop (map int) 
-(#(list (inc (first %)) (second %)))
-(#(repeat (first %) (range (second %))))
-(apply concat) 
-(map vector (concat x (repeat \space)))
-(sort-by second) (map first) 
-drop-last (apply str))
-))
+  (let [x (->> input string/lower-case
+               (filter #(Character/isLetter %)))]
+    (->> x 
+         count 
+         math/sqrt 
+         (#(list (math/floor %) (math/round %) (math/ceil %))) 
+         pop
+         (#(list (inc (first %)) (second %)))
+         (#(repeat (first %) (range (second %))))
+         flatten
+         (map vector (concat x (repeat \space)))
+         (sort-by second)
+         (map first) 
+         drop-last 
+         (apply str))))
 
 (defn decode-string [input]
-(->> (range) (map #(vector % %))
-(apply concat) (#(map vector % (drop 1 %)))
-(drop-while #(< (reduce * %) (count input)))
-first (#(repeat (first %) (range (second %))))
-(apply concat)(map vector (concat input (repeat \space)))
-(sort-by second ) (map first) 
-(apply str) (string/trim)
-))
+  (->> (range)
+       (map #(vector % %))
+       (apply concat) 
+       (#(map vector % (drop 1 %)))
+       (drop-while #(< (reduce * %) (count input)))
+       first 
+       (#(repeat (first %) (range (second %))))
+       flatten 
+       (map vector (concat input (repeat \space)))
+       (sort-by second ) 
+       (map first) 
+       (apply str) 
+       (string/trim)))
