@@ -1,0 +1,2 @@
+[#User {:id 1 :name "Ivan"}
+        #User {:id 2 :name "Petr"}]
