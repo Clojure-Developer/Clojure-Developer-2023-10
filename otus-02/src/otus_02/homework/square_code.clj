@@ -1,7 +1,7 @@
 (ns otus-02.homework.square-code
-  (:require [clojure.math :as math]
-            [clojure.string :as str])
-  (:use [otus-02.homework.palindrome :only [convert-string-to-mass]]))
+    (:require [clojure.math :as math]
+              [clojure.string :as str])
+    (:use [otus-02.homework.palindrome :only [convert-string-to-mass]]))
 
 ;; Реализовать классический метод составления секретных сообщений, называемый `square code`.
 ;; Выведите закодированную версию полученного текста.
@@ -53,25 +53,30 @@
 
 
 (defn encode-string [input]
-  (let [mass (convert-string-to-mass input 'str/lower-case)
-        cnt (count mass)
-        rows (int (math/floor (math/sqrt cnt)))
-        cols (int (math/ceil (math/sqrt cnt)))
-        mass (str mass (apply str (repeat (- (* rows cols) cnt) " ")))]
-    (loop [r-ind 0                                          ; to let after take r with join with space, iteration by for look last vid
-           c-ind 0
-           acc ""]
-      (if (and (= r-ind 0)
-               (= c-ind cols))
-        acc
-        (if (= r-ind (dec rows))
-          (recur 0 (inc c-ind) (str acc (nth mass (+ c-ind (* r-ind cols)))))
-          (recur (inc r-ind) c-ind (str acc (nth mass (+ c-ind (* r-ind cols)))))
-          )))))
+    (let [mass (convert-string-to-mass input 'str/lower-case)
+          cnt (count mass)
+          rows (int (math/floor (math/sqrt cnt)))
+          cols (int (math/ceil (math/sqrt cnt)))
+          mass (str mass (apply str (repeat (- (* rows cols) cnt) " ")))
+          ans-without-spaces (loop [r-ind 0
+                                    c-ind 0
+                                    acc ""]
+                                 (if (and (= r-ind 0)
+                                          (= c-ind cols))
+                                     acc
+                                     (if (= r-ind (dec rows))
+                                         (recur 0 (inc c-ind) (str acc (nth mass (+ c-ind (* r-ind cols)))))
+                                         (recur (inc r-ind) c-ind (str acc (nth mass (+ c-ind (* r-ind cols)))))
+                                         )))]
+        (str/join " " (map #(reduce str %) (partition rows ans-without-spaces)))))
+
 
 (comment
-  (let [a "If man was meant to stay on the ground, god would have given us roots."]
-    (encode-string a)))
+    (let [a "If man was meant to stay on the ground, god would have given us roots."]
+        (encode-string a))
+    (encode-string "Asdasda")
+    (map #(reduce str %) (partition 4 "asdasdsadfasfa")))
 
 
-(defn decode-string [input])
+(defn decode-string [input]
+    (encode-string input))
