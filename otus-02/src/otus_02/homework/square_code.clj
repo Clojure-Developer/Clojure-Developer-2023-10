@@ -53,7 +53,7 @@
 
 
 (defn encode-string [input]
-    (let [mass (convert-string-to-mass input 'str/lower-case)
+    (let [mass (convert-string-to-mass input 'clojure.string/lower-case)
           cnt (count mass)
           rows (int (math/floor (math/sqrt cnt)))
           cols (int (math/ceil (math/sqrt cnt)))
@@ -75,8 +75,27 @@
     (let [a "If man was meant to stay on the ground, god would have given us roots."]
         (encode-string a))
     (encode-string "Asdasda")
-    (map #(reduce str %) (partition 4 "asdasdsadfasfa")))
+    (map #(reduce str %) (partition 4 "asdasdsadfasfa"))
+    (map #(drop-last (reduce str %)) (partition 5 "asda sdsa dfas ")))
 
 
 (defn decode-string [input]
-    (encode-string input))
+    (let [mass (convert-string-to-mass input 'clojure.string/lower-case)
+          cnt (count mass)
+          rows (int (math/ceil (math/sqrt cnt)))
+          cols (int (math/floor (math/sqrt cnt)))
+          mass (str/join (map #(reduce str (drop-last %)) (partition rows (str input " " ))))
+          ans-without-spaces (loop [r-ind 0
+                                    c-ind 0
+                                    acc ""]
+                                 (if (and (= r-ind 0)
+                                          (= c-ind cols))
+                                     acc
+                                     (if (= r-ind (dec rows))
+                                         (recur 0 (inc c-ind) (str acc (nth mass (+ c-ind (* r-ind cols)))))
+                                         (recur (inc r-ind) c-ind (str acc (nth mass (+ c-ind (* r-ind cols)))))
+                                         )))]
+        (str/replace ans-without-spaces " " "")))
+
+(comment
+    (decode-string "imtgdvs fearwer mayoogo anouuio ntnnlvt wttddes aohghn  sseoau "))
