@@ -14,4 +14,14 @@
   Магический квадрат должен быть заполнен так, что суммы всех вертикалей,
   горизонталей и диагоналей длиной в n должны быть одинаковы."
   [n]
-  [[0]])
+  (loop [acc (vec (repeat (inc n) (vec (repeat (inc n) 0))))
+         i 0
+         j (inc (quot n 2))
+         cnt 1]
+    (if (= cnt (* n n))
+      acc
+      (let [acc (assoc acc i (assoc (get i acc) j cnt))
+            [i j] (if (zero? (get-in [i j] acc))
+                    [(inc i) (dec j)]
+                    [i (inc j)])]
+        (recur acc i j (inc cnt))))))
