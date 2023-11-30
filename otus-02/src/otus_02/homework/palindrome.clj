@@ -7,8 +7,8 @@
          (filter (fn [x] (Character/isLetter ^char x)))
          (string/join)
          ((if (nil? case-fun)
-             (partial string/upper-case)
-             (partial (resolve case-fun))))))
+              string/upper-case
+              case-fun))))
 
 (defn is-palindrome [test-string]                           ;; Why is there no question mark in func name?
     (let [letters-mass (convert-string-to-mass test-string)
@@ -17,7 +17,7 @@
 
 (comment
     (convert-string-to-mass "фытак 92е2 п2 пак--п")
-    (convert-string-to-mass "фытак 92е2 п2 пак--п" 'string/lower-case)
+    (convert-string-to-mass "фытак 92е2 п2 пак--п" string/lower-case)
     ((resolve 'string/upper-case))
     (is-palindrome "as-ds?a")
     (is-palindrome "as-ds?aa")

@@ -53,7 +53,7 @@
 
 
 (defn encode-string [input]
-    (let [mass (convert-string-to-mass input 'clojure.string/lower-case)
+    (let [mass (convert-string-to-mass input clojure.string/lower-case)
           cnt (count mass)
           rows (int (math/floor (math/sqrt cnt)))
           cols (int (math/ceil (math/sqrt cnt)))
@@ -80,7 +80,7 @@
 
 
 (defn decode-string [input]
-    (let [mass (convert-string-to-mass input 'clojure.string/lower-case)
+    (let [mass (convert-string-to-mass input clojure.string/lower-case)
           cnt (count mass)
           rows (int (math/ceil (math/sqrt cnt)))
           cols (int (math/floor (math/sqrt cnt)))
