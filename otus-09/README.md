@@ -1,4 +1,4 @@
-# Clojure Developer. Lesson 8
+# Clojure Developer. Lesson 9
 
 ## Polimorphism in Clojure. Part 1
 
