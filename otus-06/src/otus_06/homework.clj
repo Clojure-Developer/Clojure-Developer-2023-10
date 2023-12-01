@@ -1,4 +1,6 @@
-(ns otus-06.homework)
+(ns otus-06.homework
+  (:require [clojure.java.io :as io])
+  (:gen-class))
 
 ;; Загрузить данные из трех файлов на диске.
 ;; Эти данные сформируют вашу базу данных о продажах.
@@ -94,3 +96,154 @@
 
 
 ;; Файлы находятся в папке otus-06/resources/homework
+
+;; -------------- Работа с файлами и локальной бд ----------------
+(def db
+  "Локальная БД"
+  (atom {}))
+
+(defn parse-line
+  "Чтение строки из файла в мапу"
+  [ids line]
+  (->> (clojure.string/split line #"\|")
+       (mapv #(cond
+                (re-matches #"\d+" %) (parse-long %)
+                (re-matches #"\d+\.\d+" %) (parse-double %)
+                :else %))
+       (zipmap ids)))
+
+(defn extract-id
+  "Извлечение id как ключа для всей записи"
+  [[id & rest] m]
+  [(m id) (dissoc m id)])
+
+(defn parse-file
+  "Читаем файл из ресурсов, и парсим в табличку бд"
+  [ids fn]
+  (->> fn
+       io/resource
+       io/reader
+       line-seq
+       (mapv #(extract-id ids (parse-line ids %)))
+       (into {})))
+
+(defn init-db
+  "Загрузка файлов в БД"
+  []
+  (println "Init local DB")
+  (reset! db {:customers (parse-file [:custID :name :address :phoneNumber] "homework/cust.txt")
+              :products (parse-file [:prodID :itemDescription :unitCost] "homework/prod.txt")
+              :sales (parse-file [:salesID :custID :prodID :itemCount] "homework/sales.txt")}))
+
+;;  ------------- Реализация пунктов меню -----------------
+
+;;  -------------- 1 и 2 пункты меню ----------------
+
+(defn print-db-tbl
+  "Печать таблицы бд"
+  [tbl-name]
+  (doseq [[k v] (@db tbl-name)
+          :let [arr (mapv #(str "\"" % "\"") (vals v))]]
+    (println k " " arr)))
+
+;; --------------- 3 пункт меню ---------------
+
+(defn print-db-sales
+  "Печать таблицы продаж в необходимом виде"
+  []
+  (doseq [[k sales-v] (@db :sales)
+          :let [cust-id (sales-v :custID)
+                cust-name (get-in @db [:customers cust-id :name])
+                prod-id (sales-v :prodID)
+                item (get-in @db [:products prod-id :itemDescription])
+                cnt (sales-v :itemCount)
+                arr [cust-name item cnt]]]
+    (println k " " (mapv #(str "\"" % "\"") arr))))
+
+;; -------- общее для 4 и 5 пункта меню ----------------
+
+(defn row-id-by-column-value
+  "Поиск id строки по содержимому колонки"
+  [table column value]
+  (first
+   (for [[id {col-value column}] (@db table)
+         :when (= col-value value)]
+     id)))
+
+;;  ------------- 4 пункт меню -----------------
+
+(defn total-sales-by-cust
+  "Получено денег от клиента, для теста"
+  [name]
+  (let [cust-id (row-id-by-column-value :customers :name name)]
+    (->> (for [[_id {cid :custID pid :prodID cnt :itemCount}] (@db :sales)
+               :when (= cid cust-id)
+               :let [cost (get-in (@db :products) [pid :unitCost])]]
+           (* cnt cost))
+         (reduce +))))
+
+
+(defn print-total-sales-by-cust
+  "Получено денег от клиента, вариант для меню"
+  []
+  (println "Customer name:")
+  (let [name (read-line)
+        total-sales (total-sales-by-cust name)]
+    (println name (format ": $%.2f" (float total-sales)))))
+
+;; ------------- 5 пункт меню -----------------
+
+(defn total-count-for-product
+  "Количество проданых товаров, для теста"
+  [name]
+  (let [prod-id (row-id-by-column-value :products :itemDescription name)]
+    (->> (for [[_id {pid :prodID cnt :itemCount}] (@db :sales)
+               :when (= pid prod-id)]
+           cnt)
+         (reduce +))))
+
+
+(defn print-total-count-for-product
+  "Количество проданых товаров, для меню"
+  []
+  (println "Product name:")
+  (let [name (read-line)
+        cnt (total-count-for-product name)]
+    (println (clojure.string/capitalize name) ": " cnt)))
+
+;; ------------ Меню ------------------
+
+(def menu-str
+  "Представление меню"
+  (str
+   "*** Sales Menu ***\n"
+   "1. Display Customer Table\n"
+   "2. Display Product Table\n"
+   "3. Display Sales Table\n"
+   "4. Total Sales for Customer\n"
+   "5. Total Count for Product\n"
+   "6. Exit\n"))
+
+(defn menu []
+  (println "Press 'Enter' for display menu.")
+  (read-line)
+  (println menu-str)
+  (print "Select menu item: ")
+  (flush)
+  (let [selected (read-line)
+        _ (println)]
+    (cond
+      (= selected "1") #(do (print-db-tbl :customers) (menu))
+      (= selected "2") #(do (print-db-tbl :products) (menu))
+      (= selected "3") #(do (print-db-sales) (menu))
+      (= selected "4") #(do (print-total-sales-by-cust) (menu))
+      (= selected "5") #(do (print-total-count-for-product) (menu))
+      (= selected "6") (println "Bye.")
+      :else #(menu))))
+
+(defn -main [& args]
+  (init-db)
+  (trampoline menu))
+
+(comment
+  (main))
