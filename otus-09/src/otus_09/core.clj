@@ -1,8 +1,9 @@
-(ns otus-08.core
+(ns otus-09.core
   (:require [clojure.core.match :refer [match]]
             [clojure.math :as math])
   (:gen-class))
 
+;; helpers
 
 (defn ->rect [width height]
   {:shape :rect      ;; kinda type
@@ -54,9 +55,9 @@
     :else (str "Sorry, I don't know how to append to a " (type coll))))
 
 (comment
-  (append [1 2 3] 1)
+  (append [1 2 3] 5)
   
-  (append '(1 2 3) 1)
+  (append '(1 2 3) 5)
   
   (append {} 1)
   )
@@ -71,6 +72,8 @@
           [0 _] "Fizz"
           [_ 0] "Buzz"
           :else n)))
+
+
 
 (defn area-match [object]
   (match object
@@ -230,23 +233,27 @@
 (defmethod describe String [s]
   (format "%s is a string" s))
 
-(isa? :radius :radius)
+(comment
+  (isa? :radius :radius)
+  (isa? java.util.Map ::collection)
+  (isa? java.util.Collection ::collection)
 
-(isa? java.util.Map ::collection)
-(isa? java.util.Collection ::collection)
 
-(derive java.util.Map ::collection)
-(derive java.util.Collection ::collection)
+  (derive java.util.Map ::collection)
+  (derive java.util.Collection ::collection)
 
-(describe [])
+  (describe [])
 
-(describe (java.util.HashMap.))
+  (describe (java.util.HashMap.))
 
-(describe "bar")
+  (describe "bar")
 
-(parents java.util.AbstractMap) 
-(ancestors java.util.AbstractMap)
-(descendants ::collection)
+  (parents java.util.AbstractMap)
+  (ancestors java.util.AbstractMap)
+  
+  (descendants ::collection)
+  )
+
 
 
 ;; prefer-method
