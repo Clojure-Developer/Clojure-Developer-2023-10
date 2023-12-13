@@ -1,43 +1,58 @@
 (ns otus-06.homework
-    (:require [clojure.string :as str]))
+    (:require [clojure.spec.alpha :as s]
+              [clojure.string :as str]))
 
-(defn parse-int [val]
-    (Long/parseLong val))
+(s/def ::str->int
+    (s/conformer (fn [val]
+                     (try (Long/parseLong val)
+                          (catch Exception _
+                              ::s/invalid)))
+                 str))
 
-(defn parse-double [val]
-    (Double/parseDouble val))
+(s/def ::str->double
+    (s/conformer (fn [val]
+                     (try (Double/parseDouble val)
+                          (catch Exception _
+                              ::s/invalid)))
+                 str))
 
-(def customer-header {:customer-id  parse-int
-                      :name         identity
-                      :address      identity
-                      :phone-number identity})
+(s/def ::table-line->vals
+    (s/conformer (fn [val]
+                     (try (str/split val #"\|")
+                          (catch Exception _
+                              ::s/invalid)))
+                 (fn [val]
+                     (str/join "|" val))))
 
-(def product-header {:product-id       parse-int
-                     :item-description identity
-                     :unit-cost        parse-double})
+(s/def ::customer
+    (s/and ::table-line->vals
+           (s/cat :customer-id ::str->int
+                  :name any?
+                  :address any?
+                  :phone-number any?)))
 
-(def sales-header {:sales-id    parse-int
-                   :customer-id parse-int
-                   :product-id  parse-int
-                   :item-count  parse-int})
+(s/def ::product
+    (s/and ::table-line->vals
+           (s/cat :product-id ::str->int
+                  :item-description any?
+                  :unit-cost ::str->double)))
 
-(defn assoc-parsed-value [header result [k v]]
-    (assoc result k ((get header k) v)))
+(s/def ::sales
+    (s/and ::table-line->vals
+           (s/cat :sales-id ::str->int
+                  :customer-id ::str->int
+                  :product-id ::str->int
+                  :item-count ::str->int)))
 
-(defn read-db-file->map [file-name header]
+(defn read-db-file->map [file-name spec]
     (with-open [rdr (clojure.java.io/reader file-name)]
         (->> rdr
              line-seq
              (into [])
-             (map #(str/split % #"\|"))
-             (map (partial zipmap (keys header)))
-             (map (partial reduce (partial assoc-parsed-value header) {}))
+             (map (partial s/conform spec))
              )))
 
 (comment
-    (read-db-file->map "resources/homework/cust.txt" customer-header)
-    (read-db-file->map "resources/homework/prod.txt" product-header)
-    (read-db-file->map "resources/homework/sales.txt" sales-header)
-    (assoc-parsed-value customer-header {} [:customer-id "1"])
-    (let [k :customer-id]
-        (get customer-header k)))
+    (read-db-file->map "resources/homework/cust.txt" ::customer)
+    (read-db-file->map "resources/homework/prod.txt" ::product)
+    (read-db-file->map "resources/homework/sales.txt" ::sales))
