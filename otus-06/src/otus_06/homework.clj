@@ -56,3 +56,53 @@
     (read-db-file->map "resources/homework/cust.txt" ::customer)
     (read-db-file->map "resources/homework/prod.txt" ::product)
     (read-db-file->map "resources/homework/sales.txt" ::sales))
+
+
+(defn load-customer []
+    (read-db-file->map "resources/homework/cust.txt" ::customer))
+
+(defn load-product []
+    (read-db-file->map "resources/homework/prod.txt" ::product))
+
+(defn load-sales []
+    (read-db-file->map "resources/homework/sales.txt" ::sales))
+
+
+(defn update-record [src-table
+                     fk-kw
+                     src-kw
+                     trg-kw                                 ;TODO rework to concat old + table name from meta
+                     record]
+    (-> record
+        (assoc trg-kw ((comp src-kw first)
+                               (filter #(= (fk-kw %) (fk-kw record)) src-table)))
+        (dissoc fk-kw)))
+
+(defn customer-id->customer-name [customer-table]
+    (partial update-record customer-table :customer-id :name :customer-name))
+
+
+(defn product-id->product-description [product-table]
+    (partial update-record product-table :product-id :item-description :product-description))
+
+(comment
+    (customer-id->customer-name (load-customer) (nth (load-sales) 3))
+    (update-record (load-customer) :customer-id :name :customer-name (nth (load-sales) 3))
+    )
+
+(defn sales->view []
+    (let [sales-table (load-sales)
+          customer-table (load-customer)
+          product-table (load-product)
+          sales-view (map (comp
+                              (product-id->product-description product-table)
+                              (customer-id->customer-name customer-table)) sales-table)]
+        sales-view))
+
+(comment
+    (sales->view)
+    )
+
+(def actions {:display-customer-table load-customer
+      :display-product-table  load-product
+      :display-sales-table sales->view})
