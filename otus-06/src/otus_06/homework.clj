@@ -75,7 +75,7 @@
                      record]
     (-> record
         (assoc trg-kw ((comp src-kw first)
-                               (filter #(= (fk-kw %) (fk-kw record)) src-table)))
+                       (filter #(= (fk-kw %) (fk-kw record)) src-table)))
         (dissoc fk-kw)))
 
 (defn customer-id->customer-name [customer-table]
@@ -103,6 +103,15 @@
     (sales->view)
     )
 
-(def actions {:display-customer-table load-customer
-      :display-product-table  load-product
-      :display-sales-table sales->view})
+(def actions [(load-customer)
+              (load-product)
+              (sales->view)])
+
+(defn choose-action []
+    (let [action-id (parse-long (read-line))]
+        (if (and (>= action-id 0)
+                 (< action-id (count actions)))
+            (do (println (get actions action-id)) choose-action)
+            (println "Bye-bye!"))))
+
+(trampoline choose-action)
