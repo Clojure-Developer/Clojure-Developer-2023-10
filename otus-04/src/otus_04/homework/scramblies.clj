@@ -7,4 +7,6 @@
   "Функция возвращает true, если из букв в строке letters
   можно составить слово word."
   [letters word]
-  nil)
+  (let [letters-set (set (mapv str letters))
+        word-set (set (mapv str word))]
+    (= (clojure.set/intersection letters-set word-set) word-set)))
