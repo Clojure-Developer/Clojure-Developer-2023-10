@@ -1,6 +1,7 @@
 (ns otus-06.homework
     (:require [clojure.spec.alpha :as s]
-              [clojure.string :as str]))
+              [clojure.string :as str])
+    (:gen-class))
 
 (s/def ::str->int
     (s/conformer (fn [val]
@@ -85,12 +86,15 @@
 (defn product-id->product-description [product-table]
     (partial update-record product-table :product-id :item-description :product-description))
 
+(defn product-id->product-unit-cost [product-table]
+    (partial update-record product-table :product-id :unit-cost :product-unit-cost))
+
 (comment
     (customer-id->customer-name (load-customer) (nth (load-sales) 3))
     (update-record (load-customer) :customer-id :name :customer-name (nth (load-sales) 3))
     )
 
-(defn sales->view []
+(defn get-sales-view []
     (let [sales-table (load-sales)
           customer-table (load-customer)
           product-table (load-product)
@@ -99,19 +103,51 @@
                               (customer-id->customer-name customer-table)) sales-table)]
         sales-view))
 
+(defn calculate-income-by-client-name []
+    (flush)
+    (let [customer-name (read-line)
+          sales-table (load-sales)
+          customer-table (load-customer)
+          product-table (load-product)
+          view (map (comp
+                        (product-id->product-unit-cost product-table)
+                        (customer-id->customer-name customer-table)) sales-table)]
+        (->> view
+             (filter #(= customer-name (:customer-name %)))
+             (reduce #(+ %1 (* (:item-count %2) (:product-unit-cost %2))) 0))))
+
 (comment
-    (sales->view)
-    )
+    (get-sales-view)
+    (calculate-income-by-client-name)
+    proxy)
 
 (def actions [(load-customer)
               (load-product)
-              (sales->view)])
+              (get-sales-view)
+              (calculate-income-by-client-name)])
+
+(def actions-hint "--------------------------------\n
+    1. Display Customer Table\n
+    2. Display Product Table\n
+    3. Display Sales Table\n
+    4. Total Sales for Customer\n
+    5. Total Count for Product\n
+    6. Display Hint\n
+    7. Exit\n\nEnter an option?")
 
 (defn choose-action []
     (let [action-id (parse-long (read-line))]
-        (if (and (>= action-id 0)
-                 (< action-id (count actions)))
-            (do (println (get actions action-id)) choose-action)
+        (if (and (>= action-id 1)
+                 (<= action-id (count actions)))
+            (do (clojure.pprint/pprint (get actions (dec action-id))) choose-action)
             (println "Bye-bye!"))))
 
-(trampoline choose-action)
+(defn start []
+    (println actions-hint)
+    (trampoline choose-action))
+(comment
+    (trampoline choose-action)
+    (start))
+
+(defn -main [& args]
+    (start))
