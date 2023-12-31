@@ -101,7 +101,7 @@
 ;; VARS
 ;;**************************************************
 
-(def files ["cust.txt" "prod.txt" "sales.txt"])
+(def files (map #(str "homework/" %) ["cust.txt" "prod.txt" "sales.txt"]))
 
 ;; запросы
 (def menu "\n*** Sales Menu ***
