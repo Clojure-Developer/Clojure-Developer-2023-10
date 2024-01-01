@@ -3,12 +3,18 @@
    [clojure.test :refer :all]))
 
 
+(defn div? [n d]
+    (zero? (mod n d)))
+
+(defn cond-div [a]
+    (cond
+        (div? a 15) (str "FizzBuzz")
+        (div? a 5) (str "Buzz")
+        (div? a 3) (str "Fizz")
+        :else a))
+
 (defn fizz-buzz [n]
-  "Создайте программу, которая выводит числа от 1 до n.
-   - Если число делится на 3, выведите 'Fizz';
-   - если число делится на 5, выведите 'Buzz';
-   - если число делится и на 3 и на 5, выведите 'FizzBuzz'."
-  "implement me")
+    (map cond-div (range 1 (inc n))))
 
 
 (deftest fizz-buzz-test

@@ -1,96 +1,153 @@
-(ns otus-06.homework)
+(ns otus-06.homework
+    (:require [clojure.spec.alpha :as s]
+              [clojure.string :as str])
+    (:gen-class))
 
-;; Загрузить данные из трех файлов на диске.
-;; Эти данные сформируют вашу базу данных о продажах.
-;; Каждая таблица будет иметь «схему», которая указывает поля внутри.
-;; Итак, ваша БД будет выглядеть так:
+(s/def ::str->int
+    (s/conformer (fn [val]
+                     (try (Long/parseLong val)
+                          (catch Exception _
+                              ::s/invalid)))
+                 str))
 
-;; cust.txt: это данные для таблицы клиентов. Схема:
-;; <custID, name, address, phoneNumber>
+(s/def ::str->double
+    (s/conformer (fn [val]
+                     (try (Double/parseDouble val)
+                          (catch Exception _
+                              ::s/invalid)))
+                 str))
 
-;; Примером файла cust.txt может быть:
-;; 1|John Smith|123 Here Street|456-4567
-;; 2|Sue Jones|43 Rose Court Street|345-7867
-;; 3|Fan Yuhong|165 Happy Lane|345-4533
+(s/def ::table-line->vals
+    (s/conformer (fn [val]
+                     (try (str/split val #"\|")
+                          (catch Exception _
+                              ::s/invalid)))
+                 (fn [val]
+                     (str/join "|" val))))
 
-;; Каждое поле разделяется символом «|». и содержит непустую строку.
+(s/def ::customer
+    (s/and ::table-line->vals
+           (s/cat :customer-id ::str->int
+                  :name any?
+                  :address any?
+                  :phone-number any?)))
 
-;; prod.txt: это данные для таблицы продуктов. Схема
-;; <prodID, itemDescription, unitCost>
+(s/def ::product
+    (s/and ::table-line->vals
+           (s/cat :product-id ::str->int
+                  :item-description any?
+                  :unit-cost ::str->double)))
 
-;; Примером файла prod.txt может быть:
-;; 1|shoes|14.96
-;; 2|milk|1.98
-;; 3|jam|2.99
-;; 4|gum|1.25
-;; 5|eggs|2.98
-;; 6|jacket|42.99
+(s/def ::sales
+    (s/and ::table-line->vals
+           (s/cat :sales-id ::str->int
+                  :customer-id ::str->int
+                  :product-id ::str->int
+                  :item-count ::str->int)))
 
-;; sales.txt: это данные для основной таблицы продаж. Схема:
-;; <salesID, custID, prodID, itemCount>.
-;;
-;; Примером дискового файла sales.txt может быть:
-;; 1|1|1|3
-;; 2|2|2|3
-;; 3|2|1|1
-;; 4|3|3|4
+(defn read-db-file->map [file-name spec]
+    (with-open [rdr (clojure.java.io/reader file-name)]
+        (->> rdr
+             line-seq
+             (into [])
+             (map (partial s/conform spec))
+             )))
 
-;; Например, первая запись (salesID 1) указывает, что Джон Смит (покупатель 1) купил 3 пары обуви (товар 1).
-
-;; Задача:
-;; Предоставить следующее меню, позволяющее пользователю выполнять действия с данными:
-
-;; *** Sales Menu ***
-;; ------------------
-;; 1. Display Customer Table
-;; 2. Display Product Table
-;; 3. Display Sales Table
-;; 4. Total Sales for Customer
-;; 5. Total Count for Product
-;; 6. Exit
-
-;; Enter an option?
-
-
-;; Варианты будут работать следующим образом
-
-;; 1. Вы увидите содержимое таблицы Customer. Вывод должен быть похож (не обязательно идентичен) на
-
-;; 1: ["John Smith" "123 Here Street" "456-4567"]
-;; 2: ["Sue Jones" "43 Rose Court Street" "345-7867"]
-;; 3: ["Fan Yuhong" "165 Happy Lane" "345-4533"]
-
-;; 2. То же самое для таблицы prod.
-
-;; 3. Таблица продаж немного отличается.
-;;    Значения идентификатора не очень полезны для целей просмотра,
-;;    поэтому custID следует заменить именем клиента, а prodID — описанием продукта, как показано ниже:
-;; 1: ["John Smith" "shoes" "3"]
-;; 2: ["Sue Jones" "milk" "3"]
-;; 3: ["Sue Jones" "shoes" "1"]
-;; 4: ["Fan Yuhong" "jam" "4"]
-
-;; 4. Для варианта 4 вы запросите у пользователя имя клиента.
-;;    Затем вы определите общую стоимость покупок для этого клиента.
-;;    Итак, для Сью Джонс вы бы отобразили такой результат:
-;; Sue Jones: $20.90
-
-;;    Это соответствует 1 паре обуви и 3 пакетам молока.
-;;    Если клиент недействителен, вы можете либо указать это в сообщении, либо вернуть $0,00 за результат.
-
-;; 5. Здесь мы делаем то же самое, за исключением того, что мы вычисляем количество продаж для данного продукта.
-;;    Итак, для обуви у нас может быть:
-;; Shoes: 4
-
-;;    Это представляет три пары для Джона Смита и одну для Сью Джонс.
-;;    Опять же, если продукт не найден, вы можете либо сгенерировать сообщение, либо просто вернуть 0.
-
-;; 6. Наконец, если выбрана опция «Выход», программа завершится с сообщением «До свидания».
-;;    В противном случае меню будет отображаться снова.
+(comment
+    (read-db-file->map "resources/homework/cust.txt" ::customer)
+    (read-db-file->map "resources/homework/prod.txt" ::product)
+    (read-db-file->map "resources/homework/sales.txt" ::sales))
 
 
-;; *** Дополнительно можно реализовать возможность добавлять новые записи в исходные файлы
-;;     Например добавление нового пользователя, добавление новых товаров и новых данных о продажах
+(defn load-customer []
+    (read-db-file->map "resources/homework/cust.txt" ::customer))
+
+(defn load-product []
+    (read-db-file->map "resources/homework/prod.txt" ::product))
+
+(defn load-sales []
+    (read-db-file->map "resources/homework/sales.txt" ::sales))
 
 
-;; Файлы находятся в папке otus-06/resources/homework
+(defn update-record [src-table
+                     fk-kw
+                     src-kw
+                     trg-kw                                 ;TODO rework to concat old + table name from meta
+                     record]
+    (-> record
+        (assoc trg-kw ((comp src-kw first)
+                       (filter #(= (fk-kw %) (fk-kw record)) src-table)))
+        (dissoc fk-kw)))
+
+(defn customer-id->customer-name [customer-table]
+    (partial update-record customer-table :customer-id :name :customer-name))
+
+
+(defn product-id->product-description [product-table]
+    (partial update-record product-table :product-id :item-description :product-description))
+
+(defn product-id->product-unit-cost [product-table]
+    (partial update-record product-table :product-id :unit-cost :product-unit-cost))
+
+(comment
+    (customer-id->customer-name (load-customer) (nth (load-sales) 3))
+    (update-record (load-customer) :customer-id :name :customer-name (nth (load-sales) 3))
+    )
+
+(defn get-sales-view []
+    (let [sales-table (load-sales)
+          customer-table (load-customer)
+          product-table (load-product)
+          sales-view (map (comp
+                              (product-id->product-description product-table)
+                              (customer-id->customer-name customer-table)) sales-table)]
+        sales-view))
+
+(defn calculate-income-by-client-name []
+    (flush)
+    (let [customer-name (read-line)
+          sales-table (load-sales)
+          customer-table (load-customer)
+          product-table (load-product)
+          view (map (comp
+                        (product-id->product-unit-cost product-table)
+                        (customer-id->customer-name customer-table)) sales-table)]
+        (->> view
+             (filter #(= customer-name (:customer-name %)))
+             (reduce #(+ %1 (* (:item-count %2) (:product-unit-cost %2))) 0))))
+
+(comment
+    (get-sales-view)
+    (calculate-income-by-client-name)
+    proxy)
+
+(def actions [(load-customer)
+              (load-product)
+              (get-sales-view)
+              (calculate-income-by-client-name)])
+
+(def actions-hint "--------------------------------\n
+    1. Display Customer Table\n
+    2. Display Product Table\n
+    3. Display Sales Table\n
+    4. Total Sales for Customer\n
+    5. Total Count for Product\n
+    6. Display Hint\n
+    7. Exit\n\nEnter an option?")
+
+(defn choose-action []
+    (let [action-id (parse-long (read-line))]
+        (if (and (>= action-id 1)
+                 (<= action-id (count actions)))
+            (do (clojure.pprint/pprint (get actions (dec action-id))) choose-action)
+            (println "Bye-bye!"))))
+
+(defn start []
+    (println actions-hint)
+    (trampoline choose-action))
+(comment
+    (trampoline choose-action)
+    (start))
+
+(defn -main [& args]
+    (start))
