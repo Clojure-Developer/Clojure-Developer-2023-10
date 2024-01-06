@@ -1,56 +1,48 @@
-(ns otus-02.homework.square-code)
+(ns otus-02.homework.square-code
+  (:require [clojure.math :as math]
+            [clojure.string :as str]))
 
-;; Реализовать классический метод составления секретных сообщений, называемый `square code`.
-;; Выведите закодированную версию полученного текста.
+(defn- pad-right [len val col]
+  (take len (concat col (repeat val))))
 
-;; Во-первых, текст нормализуется: из текста удаляются пробелы и знаки препинания,
-;; также текст переводится в нижний регистр.
-;; Затем нормализованные символы разбиваются на строки.
-;; Эти строки можно рассматривать как образующие прямоугольник при печати их друг под другом.
+(defn- get-col-width [input-string]
+  (-> input-string
+      (count)
+      (math/sqrt)
+      (math/ceil)
+      (int)))
 
-;; Например,
-"If man was meant to stay on the ground, god would have given us roots."
-;; нормализуется в строку:
-"ifmanwasmeanttostayonthegroundgodwouldhavegivenusroots"
+(defn- prepare-str [input]
+  (-> input
+      (str/replace #"[\W]{1,}" "")
+      (str/lower-case)))
 
-;; Разбиваем текст в виде прямоугольника.
-;; Размер прямоугольника (rows, cols) должен определяться длиной сообщения,
-;; так что c >= r и c - r <= 1, где c — количество столбцов, а r — количество строк.
-;; Наш нормализованный текст имеет длину 54 символа
-;; и представляет собой прямоугольник с c = 8 и r = 7:
-"ifmanwas"
-"meanttos"
-"tayonthe"
-"groundgo"
-"dwouldha"
-"vegivenu"
-"sroots  "
+(defn- str->matrix [input]
+  (let [len (get-col-width input)]
+    (->> input
+         (partition-all len)
+         (map (fn [lst] (pad-right len " " lst))))))
 
-;; Закодированное сообщение получается путем чтения столбцов слева направо.
-;; Сообщение выше закодировано как:
-"imtgdvsfearwermayoogoanouuiontnnlvtwttddesaohghnsseoau"
+(defn encode-string [input]
+  (->> input
+       (prepare-str)
+       (str->matrix)
+       (apply mapv str)
+       (str/join " ")))
 
-;; Полученный закодированный текст разбиваем кусками, которые заполняют идеальные прямоугольники (r X c),
-;; с кусочками c длины r, разделенными пробелами.
-;; Для фраз, которые на n символов меньше идеального прямоугольника,
-;; дополните каждый из последних n фрагментов одним пробелом в конце.
-"imtgdvs fearwer mayoogo anouuio ntnnlvt wttddes aohghn  sseoau "
+(defn decode-string [ciphertext]
+  (let [normalized (str/replace ciphertext #"([\w]{1,})([\W]{1,1})" "$1")
+        length (count normalized)
+        side (Math/sqrt length)
+        rows (Math/floor side)
+        cols (Math/ceil side)]
+    (str/join
+     (apply concat (for [i (range rows)]
+                     (for [j (range cols)]
+                       (let [value
+                             (get normalized
+                                  (int (+ (* j rows) i))
+                                  "")]
+                         (when-not (= value \space)
+                           value))))))))
 
-;; Обратите внимание, что если бы мы сложили их,
-;; мы могли бы визуально декодировать зашифрованный текст обратно в исходное сообщение:
-
-"imtgdvs"
-"fearwer"
-"mayoogo"
-"anouuio"
-"ntnnlvt"
-"wttddes"
-"aohghn "
-"sseoau "
-
-
-
-(defn encode-string [input])
-
-
-(defn decode-string [input])
