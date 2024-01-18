@@ -49,8 +49,8 @@
     (with-open [rdr (clojure.java.io/reader file-name)]
         (->> rdr
              line-seq
-             (into [])
              (map (partial s/conform spec))
+             doall
              )))
 
 (defn load-customer []
