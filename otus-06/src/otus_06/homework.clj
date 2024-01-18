@@ -53,12 +53,6 @@
              (map (partial s/conform spec))
              )))
 
-(comment
-    (read-db-file->map "resources/homework/cust.txt" ::customer)
-    (read-db-file->map "resources/homework/prod.txt" ::product)
-    (read-db-file->map "resources/homework/sales.txt" ::sales))
-
-
 (defn load-customer []
     (read-db-file->map "resources/homework/cust.txt" ::customer))
 
@@ -89,11 +83,6 @@
 (defn product-id->product-unit-cost [product-table]
     (partial update-record product-table :product-id :unit-cost :product-unit-cost))
 
-(comment
-    (customer-id->customer-name (load-customer) (nth (load-sales) 3))
-    (update-record (load-customer) :customer-id :name :customer-name (nth (load-sales) 3))
-    )
-
 (defn get-sales-view []
     (let [sales-table (load-sales)
           customer-table (load-customer)
@@ -116,15 +105,15 @@
              (filter #(= customer-name (:customer-name %)))
              (reduce #(+ %1 (* (:item-count %2) (:product-unit-cost %2))) 0))))
 
-(comment
-    (get-sales-view)
-    (calculate-income-by-client-name)
-    proxy)
-
-(def actions [(load-customer)
-              (load-product)
-              (get-sales-view)
-              (calculate-income-by-client-name)])
+(defn calculate-sales-count-by-product-name []
+    (flush)
+    (let [product-name (read-line)
+          sales-table (load-sales)
+          product-table (load-product)
+          view (map (product-id->product-description product-table) sales-table)]
+        (->> view
+             (filter #(= product-name (:product-description %)))
+             (reduce #(+ %1 (:item-count %2)) 0))))
 
 (def actions-hint "--------------------------------\n
     1. Display Customer Table\n
@@ -135,19 +124,31 @@
     6. Display Hint\n
     7. Exit\n\nEnter an option?")
 
+(defn print-hint []
+    (println actions-hint))
+
+(def actions [load-customer
+              load-product
+              get-sales-view
+              calculate-income-by-client-name
+              calculate-sales-count-by-product-name
+              print-hint])
+
+
 (defn choose-action []
     (let [action-id (parse-long (read-line))]
-        (if (and (>= action-id 1)
-                 (<= action-id (count actions)))
-            (do (clojure.pprint/pprint (get actions (dec action-id))) choose-action)
-            (println "Bye-bye!"))))
+        (cond
+            (and (>= action-id 1) (<= action-id (count actions)))
+            (do (clojure.pprint/pprint ((get actions (dec action-id)))) choose-action)
+
+            (= action-id (inc (count actions)))
+            (println "Bye-bye!")
+
+            :else
+            (do (println "Incorrect action number. Try again.") choose-action))))
 
 (defn start []
-    (println actions-hint)
+    (print-hint)
     (trampoline choose-action))
 (comment
-    (trampoline choose-action)
-    (start))
-
-(defn -main [& args]
     (start))
