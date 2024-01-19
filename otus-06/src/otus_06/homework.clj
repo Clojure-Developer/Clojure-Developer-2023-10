@@ -1,6 +1,7 @@
 (ns otus-06.homework
     (:require [clojure.spec.alpha :as s]
-              [clojure.string :as str]))
+              [clojure.string :as str])
+    (:gen-class))
 
 (s/def ::str->int
     (s/conformer (fn [val]
@@ -48,15 +49,9 @@
     (with-open [rdr (clojure.java.io/reader file-name)]
         (->> rdr
              line-seq
-             (into [])
              (map (partial s/conform spec))
+             doall
              )))
-
-(comment
-    (read-db-file->map "resources/homework/cust.txt" ::customer)
-    (read-db-file->map "resources/homework/prod.txt" ::product)
-    (read-db-file->map "resources/homework/sales.txt" ::sales))
-
 
 (defn load-customer []
     (read-db-file->map "resources/homework/cust.txt" ::customer))
@@ -75,7 +70,7 @@
                      record]
     (-> record
         (assoc trg-kw ((comp src-kw first)
-                               (filter #(= (fk-kw %) (fk-kw record)) src-table)))
+                       (filter #(= (fk-kw %) (fk-kw record)) src-table)))
         (dissoc fk-kw)))
 
 (defn customer-id->customer-name [customer-table]
@@ -85,12 +80,10 @@
 (defn product-id->product-description [product-table]
     (partial update-record product-table :product-id :item-description :product-description))
 
-(comment
-    (customer-id->customer-name (load-customer) (nth (load-sales) 3))
-    (update-record (load-customer) :customer-id :name :customer-name (nth (load-sales) 3))
-    )
+(defn product-id->product-unit-cost [product-table]
+    (partial update-record product-table :product-id :unit-cost :product-unit-cost))
 
-(defn sales->view []
+(defn get-sales-view []
     (let [sales-table (load-sales)
           customer-table (load-customer)
           product-table (load-product)
@@ -99,10 +92,63 @@
                               (customer-id->customer-name customer-table)) sales-table)]
         sales-view))
 
-(comment
-    (sales->view)
-    )
+(defn calculate-income-by-client-name []
+    (flush)
+    (let [customer-name (read-line)
+          sales-table (load-sales)
+          customer-table (load-customer)
+          product-table (load-product)
+          view (map (comp
+                        (product-id->product-unit-cost product-table)
+                        (customer-id->customer-name customer-table)) sales-table)]
+        (->> view
+             (filter #(= customer-name (:customer-name %)))
+             (reduce #(+ %1 (* (:item-count %2) (:product-unit-cost %2))) 0))))
 
-(def actions {:display-customer-table load-customer
-      :display-product-table  load-product
-      :display-sales-table sales->view})
+(defn calculate-sales-count-by-product-name []
+    (flush)
+    (let [product-name (read-line)
+          sales-table (load-sales)
+          product-table (load-product)
+          view (map (product-id->product-description product-table) sales-table)]
+        (->> view
+             (filter #(= product-name (:product-description %)))
+             (reduce #(+ %1 (:item-count %2)) 0))))
+
+(def actions-hint "--------------------------------\n
+    1. Display Customer Table\n
+    2. Display Product Table\n
+    3. Display Sales Table\n
+    4. Total Sales for Customer\n
+    5. Total Count for Product\n
+    6. Display Hint\n
+    7. Exit\n\nEnter an option?")
+
+(defn print-hint []
+    (println actions-hint))
+
+(def actions [load-customer
+              load-product
+              get-sales-view
+              calculate-income-by-client-name
+              calculate-sales-count-by-product-name
+              print-hint])
+
+
+(defn choose-action []
+    (let [action-id (parse-long (read-line))]
+        (cond
+            (and (>= action-id 1) (<= action-id (count actions)))
+            (do (clojure.pprint/pprint ((get actions (dec action-id)))) choose-action)
+
+            (= action-id (inc (count actions)))
+            (println "Bye-bye!")
+
+            :else
+            (do (println "Incorrect action number. Try again.") choose-action))))
+
+(defn start []
+    (print-hint)
+    (trampoline choose-action))
+(comment
+    (start))

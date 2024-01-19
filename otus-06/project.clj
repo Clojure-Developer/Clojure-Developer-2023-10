@@ -6,4 +6,7 @@
   :dependencies [[org.clojure/clojure "1.11.1"]
                  [aero "1.1.6"]]
 
+  :main otus-06.homework
+  :source-paths ["src"]
+
   :repl-options {:init-ns otus-06.core})
