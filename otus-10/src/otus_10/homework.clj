@@ -1,27 +1,38 @@
 (ns otus-10.homework
-    (:require [clojure.java.io :as io])
+    (:require [clojure.java.io :as io]
+              [clojure.java.io :refer [output-stream]])
     (:import (java.io ByteArrayOutputStream)
              (java.nio.charset Charset)))
 
 (defn to-hex [n]
-    (format "%x" n))
+    (format "%02x" n))
+
+(defn gen-random-str []
+    (apply str (repeatedly 5 #(rand-nth "abcdefghijklmnopqrstuvwxyz"))))
+
 (defn file->bytes [file]
     (with-open [in (io/input-stream file)
                 out (new ByteArrayOutputStream)]
         (io/copy in out)
         (.toByteArray out)))
 
-(defn byte->binary-7 [byte]
+(defn byte->binary-7
+    "Convert byte to binary w/o first byte"
+    [byte]
     (let [tail (Integer/toString byte 2)
           head (apply str (repeat (- 7 (count tail)) "0"))]
         (str head tail)))
 
-(defn byte->binary-8 [byte]
+(defn byte->binary-8
+    "Convert byte to binary"
+    [byte]
     (let [tail (Integer/toString byte 2)
           head (apply str (repeat (- 8 (count tail)) "0"))]
         (str head tail)))
 
-(defn bytes-wo-7-bit->int [coll]
+(defn bytes-wo-7-bit->int
+    "Convert bytes array to integer w/o counting first byte in each byte"
+    [coll]
     (Long/parseLong (apply str (map byte->binary-7 coll)) 2))
 
 (defn bytes->string
@@ -76,16 +87,68 @@
     (count (byte->binary-7 127))                            ;TODO to test
     (let [f (file->bytes "resources/test.mp3")]
         (clojure.pprint/pprint (read-id3v2-header f))
-        (map byte->binary-8 (take 2 (drop 14 f)))
         (clojure.pprint/pprint (read-extended-header f))
-        (bytes->string (take 4 (drop 22 f)) "UTF-16BE")
-        (read-frame-header f 22)
-        (read-frame-content f 22 10)
-        (read-frame-header f 42)
-        (read-frame-content f 42 5)
-        (read-frame-header f 57)
-        (read-frame-content f 57 5)
-        (read-frame-header f 72)
-        (read-frame-content f 72 22)
         )
     )
+
+(defmulti read-frame-content (fn [frame-id & args] frame-id))
+
+(comment
+    (ns-unmap *ns* 'read-frame-content))
+
+; default method for parse all "T"-starting frames
+(defmethod read-frame-content :default [frame-id file header-pos size]
+    (let [frame-content (take size (drop (+ 10 header-pos) file))
+          text (drop 1 frame-content)
+          encoding (case (first frame-content)
+                       0 "ISO-8859-1"
+                       1 "UTF-16"
+                       2 "UTF-16BE"
+                       3 "UTF-8"
+                       (Charset/defaultCharset))]
+        {:frame-id frame-id
+         :content  (bytes->string text encoding)}))
+
+; overrided method for parse "T"-starting frame, but in a little different way (for Homework purpose)
+(defmethod read-frame-content "TYER" [frame-id file header-pos size]
+    (let [frame-content (take size (drop (+ 10 header-pos) file))
+          text (drop 1 frame-content)
+          encoding (case (first frame-content)
+                       0 "ISO-8859-1"
+                       1 "UTF-16"
+                       2 "UTF-16BE"
+                       3 "UTF-8"
+                       (Charset/defaultCharset))]
+        {:frame   "Год выхода альбома"
+         :content (parse-long (bytes->string text encoding))}))
+
+; method for saving pictures from tag
+(defmethod read-frame-content "APIC" [frame-id file header-pos size]
+    (let [frame-content (take size (drop (+ 10 header-pos) file))
+          file-name (str "resources/pics/" (gen-random-str) ".jpeg")]
+        (with-open [w (output-stream file-name)]
+            (.write w (byte-array (drop-while #(not= -1 %) frame-content)))) ;TODO drop-while for SOI 0xFF, 0xD8 (but how???)
+        {:frame   "Attached pic"
+         :content file-name}))
+
+(defn process-id3 [path]
+    (let [file (file->bytes path)
+          id3v2-header (read-id3v2-header file)
+          size (:size id3v2-header)
+          has-extended-header? (= \1 (get-in id3v2-header [:flags :extended-header]))
+          frames-start (+ 10 (if has-extended-header?
+                                 (:size (read-extended-header file))
+                                 0))]
+        (clojure.pprint/pprint id3v2-header)
+        (if has-extended-header?
+            (clojure.pprint/pprint (read-extended-header file)))
+        (loop [pos frames-start]
+            (if (< (- pos 10) size)
+                (let [frame-header (read-frame-header file pos)
+                      frame-content (read-frame-content (:frame-id frame-header) file pos (:size frame-header))]
+                    (clojure.pprint/pprint frame-content)
+                    (recur (+ pos 10 (:size frame-header))))))))
+
+(comment
+    (process-id3 "resources/test.mp3")
+    (process-id3 "resources/test_with_pic_new.mp3"))
