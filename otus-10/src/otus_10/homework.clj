@@ -32,15 +32,21 @@
 (defmethod parse-frame 3
   [coll] (String. (byte-array (remove zero? (next coll))) "UTF-8"))
 
+;; вариант функции выбора кодировки без case
+(defn parse-frame-v2 [coll]
+  (let [[encoding-byte & rest] coll
+        encoding-types ["Windows-1252" "UTF-16" "UTF16BE" "UTF-8"]]
+    (String. (byte-array rest) (nth encoding-types encoding-byte))))
 
 (defn get-frame 
   "парсим один фрейм"
   [stream]
-  (let [[nm1 nm2 nm3 nm4 sz1 sz2 sz3 sz4 & rest] stream
+  (let [[nm1 nm2 nm3 nm4 sz1 sz2 sz3 sz4 _ _ & rest] stream
         name (apply str (map char [nm1 nm2 nm3 nm4]))
         size (get-size [sz1 sz2 sz3 sz4])
-        text (parse-frame (take (+ size 2) rest))]
+        text (parse-frame (take size rest))]
     {:name name :size size :text text}))
+
 
 (defn parse-mp3-tags [file]
 (with-open [in (io/input-stream (io/file (io/resource file)))]
