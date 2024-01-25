@@ -17,7 +17,7 @@
         (.toByteArray out)))
 
 (defn byte->binary-7
-    "Convert byte to binary w/o first byte"
+    "Convert byte to binary w/o first bit"
     [byte]
     (let [tail (Integer/toString byte 2)
           head (apply str (repeat (- 7 (count tail)) "0"))]
@@ -31,7 +31,7 @@
         (str head tail)))
 
 (defn bytes-wo-7-bit->int
-    "Convert bytes array to integer w/o counting first byte in each byte"
+    "Convert bytes array to integer w/o counting first bit in each byte"
     [coll]
     (Long/parseLong (apply str (map byte->binary-7 coll)) 2))
 
@@ -70,16 +70,6 @@
          :flags    {:byte1 (nth frame-header 8)
                     :byte2 (nth frame-header 9)}}))
 
-(defn read-frame-content [file header-pos size]
-    (let [frame-content (take size (drop (+ 10 header-pos) file))
-          text (drop 1 frame-content)
-          encoding (case (first frame-content)
-                       0 "ISO-8859-1"
-                       1 "UTF-16"
-                       2 "UTF-16BE"
-                       3 "UTF-8")]
-        (bytes->string text encoding)))
-
 (comment
     (bytes->string [73 68 51])                              ;TODO to test
     (bytes-wo-7-bit->int [0 0 7 118])                       ;TODO to test
@@ -97,9 +87,8 @@
     (ns-unmap *ns* 'read-frame-content))
 
 ; default method for parse all "T"-starting frames
-(defmethod read-frame-content :default [frame-id file header-pos size]
-    (let [frame-content (take size (drop (+ 10 header-pos) file))
-          text (drop 1 frame-content)
+(defmethod read-frame-content :default [frame-id frame-content]
+    (let [text (drop 1 frame-content)
           encoding (case (first frame-content)
                        0 "ISO-8859-1"
                        1 "UTF-16"
@@ -110,9 +99,8 @@
          :content  (bytes->string text encoding)}))
 
 ; overrided method for parse "T"-starting frame, but in a little different way (for Homework purpose)
-(defmethod read-frame-content "TYER" [frame-id file header-pos size]
-    (let [frame-content (take size (drop (+ 10 header-pos) file))
-          text (drop 1 frame-content)
+(defmethod read-frame-content "TYER" [frame-id frame-content]
+    (let [text (drop 1 frame-content)
           encoding (case (first frame-content)
                        0 "ISO-8859-1"
                        1 "UTF-16"
@@ -123,9 +111,8 @@
          :content (parse-long (bytes->string text encoding))}))
 
 ; method for saving pictures from tag
-(defmethod read-frame-content "APIC" [frame-id file header-pos size]
-    (let [frame-content (take size (drop (+ 10 header-pos) file))
-          file-name (str "resources/pics/" (gen-random-str) ".jpeg")]
+(defmethod read-frame-content "APIC" [frame-id frame-content]
+    (let [file-name (str "resources/pics/" (gen-random-str) ".jpeg")]
         (with-open [w (output-stream file-name)]
             (.write w (byte-array (drop-while #(not= -1 %) frame-content)))) ;TODO drop-while for SOI 0xFF, 0xD8 (but how???)
         {:frame   "Attached pic"
@@ -145,8 +132,9 @@
         (loop [pos frames-start]
             (if (< (- pos 10) size)
                 (let [frame-header (read-frame-header file pos)
-                      frame-content (read-frame-content (:frame-id frame-header) file pos (:size frame-header))]
-                    (clojure.pprint/pprint frame-content)
+                      frame-content (take (:size frame-header) (drop (+ 10 pos) file))
+                      frame-representation (read-frame-content (:frame-id frame-header) frame-content)]
+                    (clojure.pprint/pprint frame-representation)
                     (recur (+ pos 10 (:size frame-header))))))))
 
 (comment
