@@ -8,6 +8,7 @@
                  [ring/ring-jetty-adapter "1.10.0"]
                  [ring/ring-defaults "0.3.4"]
                  [compojure "1.7.0"]
+                 [org.clojure/data.json "2.5.0"]
                  [hiccup "1.0.5"]
                  [cheshire "5.11.0"]
                  [ring/ring-json "0.5.1"]]
