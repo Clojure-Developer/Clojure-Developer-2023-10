@@ -88,27 +88,25 @@
 (comment
     (ns-unmap *ns* 'read-frame-content))
 
+(defn determine-encoding [frame-content]
+    (case (first frame-content)
+        0 "ISO-8859-1"
+        1 "UTF-16"
+        2 "UTF-16BE"
+        3 "UTF-8"
+        (Charset/defaultCharset)))
+
 ; default method for parse all "T"-starting frames
 (defmethod read-frame-content :default [frame-id frame-content]
     (let [text (drop 1 frame-content)
-          encoding (case (first frame-content)
-                       0 "ISO-8859-1"
-                       1 "UTF-16"
-                       2 "UTF-16BE"
-                       3 "UTF-8"
-                       (Charset/defaultCharset))]
+          encoding (determine-encoding frame-content)]
         {:frame-id frame-id
          :content  (bytes->string text encoding)}))
 
 ; overrided method for parse "T"-starting frame, but in a little different way (for Homework purpose)
 (defmethod read-frame-content "TYER" [frame-id frame-content]
     (let [text (drop 1 frame-content)
-          encoding (case (first frame-content)
-                       0 "ISO-8859-1"
-                       1 "UTF-16"
-                       2 "UTF-16BE"
-                       3 "UTF-8"
-                       (Charset/defaultCharset))]
+          encoding (determine-encoding frame-content)]
         {:frame   "Год выхода альбома"
          :content (parse-long (bytes->string text encoding))}))
 
