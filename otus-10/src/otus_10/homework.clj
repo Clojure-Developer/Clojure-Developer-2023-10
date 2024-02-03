@@ -12,11 +12,11 @@
 (defn gen-random-str []
     (apply str (repeatedly 5 #(rand-nth "abcdefghijklmnopqrstuvwxyz"))))
 
-(defn file->bytes [file]
-    (with-open [in (io/input-stream file)
-                out (new ByteArrayOutputStream)]
-        (io/copy in out)
-        (.toByteArray out)))
+(defn read-file-n-bytes [path n]
+    (with-open [rdr (io/input-stream path)]
+        (let [byte-array (byte-array n)]
+            (do (.read rdr byte-array)
+                (vec byte-array)))))
 
 (defn sync-safe-to-int
     "Convert bytes array to integer w/o counting first bit in each byte"
@@ -34,26 +34,31 @@
      (new String (byte-array bytes) encoding)))
 
 
-(defn read-id3v2-header [file]
-    (let
-        [flags-byte (nth file 5)]
-        {:file-identifier (bytes->string (take 3 file)),
-         :major-version   (nth file 3),
-         :revision-number (nth file 4),
-         :flags           {:unsynchronisation      (bit-test flags-byte 0)
-                           :extended-header        (bit-test flags-byte 1)
-                           :experimental-indicator (bit-test flags-byte 2)
-                           :footer-present         (bit-test flags-byte 3)}
-         :size            (sync-safe-to-int (take 4 (drop 6 file)))}))
+(defn read-id3v2-header [path]
+    (let [header (read-file-n-bytes path 10)
+          flags-byte (nth header 5)
+          file-identifier (bytes->string (take 3 header))]
+        (if (not= file-identifier "ID3")
+            (throw (ex-info
+                       "Incorrect file identifier"
+                       {:file-identifier file-identifier})))
+        {:file-identifier file-identifier
+         :major-version   (nth header 3)
+         :revision-number (nth header 4)
+         :flags           {:unsynchronisation      (bit-test flags-byte 7)
+                           :extended-header        (bit-test flags-byte 6)
+                           :experimental-indicator (bit-test flags-byte 5)
+                           :footer-present         (bit-test flags-byte 4)}
+         :size            (sync-safe-to-int (take 4 (drop 6 header)))}))
 
 (defn read-extended-header [file]
     (let
         [flags-byte (nth file 15)]
         {:size                 (sync-safe-to-int (take 4 (drop 10 file))),
          :number-of-flag-bytes (nth file 14),
-         :flags                {:update       (bit-test flags-byte 1)
-                                :CRC          (bit-test flags-byte 2)
-                                :restrictions (bit-test flags-byte 3)}}))
+         :flags                {:update       (bit-test flags-byte 6)
+                                :CRC          (bit-test flags-byte 5)
+                                :restrictions (bit-test flags-byte 4)}}))
 
 (defn read-frame-header [file pos]
     (let [frame-header (take 10 (drop pos file))]
@@ -98,20 +103,20 @@
          :content file-name}))
 
 (defn process-id3 [path]
-    (let [file (file->bytes path)
-          id3v2-header (read-id3v2-header file)
+    (let [id3v2-header (read-id3v2-header path)
           size (:size id3v2-header)
-          has-extended-header? (= \1 (get-in id3v2-header [:flags :extended-header]))
+          tag (read-file-n-bytes path size)
+          has-extended-header? (get-in id3v2-header [:flags :extended-header])
           frames-start (+ 10 (if has-extended-header?
-                                 (:size (read-extended-header file))
+                                 (:size (read-extended-header tag))
                                  0))]
         (pprint id3v2-header)
         (if has-extended-header?
-            (pprint (read-extended-header file)))
+            (pprint (read-extended-header tag)))
         (loop [pos frames-start]
             (if (< (- pos 10) size)
-                (let [frame-header (read-frame-header file pos)
-                      frame-content (take (:size frame-header) (drop (+ 10 pos) file))
+                (let [frame-header (read-frame-header tag pos)
+                      frame-content (take (:size frame-header) (drop (+ 10 pos) tag))
                       frame-representation (read-frame-content (:frame-id frame-header) frame-content)]
                     (pprint frame-representation)
                     (recur (+ pos 10 (:size frame-header))))))))
