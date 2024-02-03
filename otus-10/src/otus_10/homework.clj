@@ -1,8 +1,10 @@
 (ns otus-10.homework
     (:require [clojure.java.io :as io]
-              [clojure.java.io :refer [output-stream]])
+              [clojure.java.io :refer [output-stream]]
+              [clojure.pprint :refer [pprint]])
     (:import (java.io ByteArrayOutputStream)
-             (java.nio.charset Charset)))
+             (java.nio.charset Charset))
+    (:gen-class))
 
 (defn to-hex [n]
     (format "%02x" n))
@@ -76,8 +78,8 @@
     (count (byte->binary-8 127))                            ;TODO to test
     (count (byte->binary-7 127))                            ;TODO to test
     (let [f (file->bytes "resources/test.mp3")]
-        (clojure.pprint/pprint (read-id3v2-header f))
-        (clojure.pprint/pprint (read-extended-header f))
+        (pprint (read-id3v2-header f))
+        (pprint (read-extended-header f))
         )
     )
 
@@ -126,17 +128,18 @@
           frames-start (+ 10 (if has-extended-header?
                                  (:size (read-extended-header file))
                                  0))]
-        (clojure.pprint/pprint id3v2-header)
+        (pprint id3v2-header)
         (if has-extended-header?
-            (clojure.pprint/pprint (read-extended-header file)))
+            (pprint (read-extended-header file)))
         (loop [pos frames-start]
             (if (< (- pos 10) size)
                 (let [frame-header (read-frame-header file pos)
                       frame-content (take (:size frame-header) (drop (+ 10 pos) file))
                       frame-representation (read-frame-content (:frame-id frame-header) frame-content)]
-                    (clojure.pprint/pprint frame-representation)
+                    (pprint frame-representation)
                     (recur (+ pos 10 (:size frame-header))))))))
 
-(comment
-    (process-id3 "resources/test.mp3")
-    (process-id3 "resources/test_with_pic_new.mp3"))
+(defn -main [& args]
+    (if (seq args)
+        (doseq [arg args]
+            (process-id3 arg))))
