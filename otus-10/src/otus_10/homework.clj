@@ -18,24 +18,14 @@
         (io/copy in out)
         (.toByteArray out)))
 
-(defn byte->binary-7
-    "Convert byte to binary w/o first bit"
-    [byte]
-    (let [tail (Integer/toString byte 2)
-          head (apply str (repeat (- 7 (count tail)) "0"))]
-        (str head tail)))
-
-(defn byte->binary-8
-    "Convert byte to binary"
-    [byte]
-    (let [tail (Integer/toString byte 2)
-          head (apply str (repeat (- 8 (count tail)) "0"))]
-        (str head tail)))
-
-(defn bytes-wo-7-bit->int
+(defn sync-safe-to-int
     "Convert bytes array to integer w/o counting first bit in each byte"
-    [coll]
-    (Long/parseLong (apply str (map byte->binary-7 coll)) 2))
+    [bytes]
+    (bit-or
+        (bit-shift-left (nth bytes 0) 21)
+        (bit-shift-left (nth bytes 1) 14)
+        (bit-shift-left (nth bytes 2) 7)
+        (nth bytes 3)))
 
 (defn bytes->string
     ([bytes]
@@ -46,42 +36,31 @@
 
 (defn read-id3v2-header [file]
     (let
-        [flags-bits (byte->binary-8 (nth file 5))]
+        [flags-byte (nth file 5)]
         {:file-identifier (bytes->string (take 3 file)),
          :major-version   (nth file 3),
          :revision-number (nth file 4),
-         :flags           {:unsynchronisation      (nth flags-bits 0)
-                           :extended-header        (nth flags-bits 1)
-                           :experimental-indicator (nth flags-bits 2)
-                           :footer-present         (nth flags-bits 3)}
-         :size            (bytes-wo-7-bit->int (take 4 (drop 6 file)))}))
+         :flags           {:unsynchronisation      (bit-test flags-byte 0)
+                           :extended-header        (bit-test flags-byte 1)
+                           :experimental-indicator (bit-test flags-byte 2)
+                           :footer-present         (bit-test flags-byte 3)}
+         :size            (sync-safe-to-int (take 4 (drop 6 file)))}))
 
 (defn read-extended-header [file]
     (let
-        [flags-bits (byte->binary-8 (nth file 15))]
-        {:size                 (bytes-wo-7-bit->int (take 4 (drop 10 file))),
+        [flags-byte (nth file 15)]
+        {:size                 (sync-safe-to-int (take 4 (drop 10 file))),
          :number-of-flag-bytes (nth file 14),
-         :flags                {:update       (nth flags-bits 1)
-                                :CRC          (nth flags-bits 2)
-                                :restrictions (nth flags-bits 3)}}))
+         :flags                {:update       (bit-test flags-byte 1)
+                                :CRC          (bit-test flags-byte 2)
+                                :restrictions (bit-test flags-byte 3)}}))
 
 (defn read-frame-header [file pos]
     (let [frame-header (take 10 (drop pos file))]
         {:frame-id (bytes->string (take 4 frame-header))
-         :size     (bytes-wo-7-bit->int (take 4 (drop 4 frame-header)))
+         :size     (sync-safe-to-int (take 4 (drop 4 frame-header)))
          :flags    {:byte1 (nth frame-header 8)
                     :byte2 (nth frame-header 9)}}))
-
-(comment
-    (bytes->string [73 68 51])                              ;TODO to test
-    (bytes-wo-7-bit->int [0 0 7 118])                       ;TODO to test
-    (count (byte->binary-8 127))                            ;TODO to test
-    (count (byte->binary-7 127))                            ;TODO to test
-    (let [f (file->bytes "resources/test.mp3")]
-        (pprint (read-id3v2-header f))
-        (pprint (read-extended-header f))
-        )
-    )
 
 (defmulti read-frame-content (fn [frame-id & args] frame-id))
 
