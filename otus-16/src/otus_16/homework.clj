@@ -1,53 +1,54 @@
 (ns otus-16.homework)
 
-(def parser-state (atom {:total-bytes      0
-                         :bytes-by-url     0
-                         :urls-by-referrer 0}))
-
-;(defn parallel-read
-;    [^String file-path start-position end-position]
-;    (with-open [file (RandomAccessFile. file-path "r")]
-;        (.seek file start-position)
-;        (let [byte-array (byte-array (- end-position start-position))
-;              _ (.readFully file byte-array)]
-;            ;; convert byte-array to string or process as needed
-;            )))
-
-(defn parse-log-line [line]
-    (let [size (-> line
-                   (clojure.string/replace #"\s\[.*?\]\s" " ")
-                   (clojure.string/replace #"\s\".*?\"\s" " ")
-                   (clojure.string/split #"\s+")
-                   (nth 4)
-                   parse-long
-                   )]
-        (swap! parser-state update :total-bytes (partial + size))))
-
-(comment
-    (parse-log-line "asd asd asf asfas ffga 12 123")
-    (parse-log-line "asd asd asf asfas ffga 12 677")
-    (reset! parser-state {:total-bytes      0
-                          :bytes-by-url     0
-                          :urls-by-referrer 0}))
+(def start-state {:total-bytes      0
+                  :bytes-by-url     0
+                  :urls-by-referrer 0})
+(def parser-state (atom start-state))
 
 (defn reset-state []
-    (reset! parser-state {:total-bytes      0
-                          :bytes-by-url     0
-                          :urls-by-referrer 0}))
+    (reset! parser-state start-state))
+
+(defn parse-apache-log [log-line]
+    (let [regex #"(\S+) (\S+) (\S+) \[([\w:/]+\s[\+\-]\d{4})\] \"(.*?)\" (\d{3}) (\S+) \"(.*?)\" \"(.*?)\""
+          matcher (re-find regex log-line)]
+        (if matcher
+            {:ip         (nth matcher 1)
+             :identifier (nth matcher 2)
+             :userid     (nth matcher 3)
+             :time       (nth matcher 4)
+             :request    (nth matcher 5)
+             :status     (nth matcher 6)
+             :size       (parse-long (nth matcher 7))
+             :referrer   (nth matcher 8)
+             :user-agent (nth matcher 9)}
+            :no-match)))
+(defn parse&persist-logs-portion [log-lines]
+    (let [total (reduce #(+ %1 (:size %2)) 0 (map parse-apache-log log-lines))]
+        (swap! parser-state update :total-bytes (partial + total))))
+
+(defn parallel-parse-file [file]
+    (with-open [rdr (clojure.java.io/reader file)]
+        (doall (pmap parse&persist-logs-portion (partition-all 100000 (line-seq rdr))))))
 
 (defn solution [& {:keys [url referrer]
                    :or   {url :all referrer :all}}]
-    (with-open [rdr (clojure.java.io/reader "logs/access.log.2")]
-        (doall (pmap parse-log-line (line-seq rdr))))
-    (let [result @parser-state]
-        (reset-state)
-        result))
+    (let [futures (doall (for [file (->> "logs"
+                                    clojure.java.io/file
+                                    file-seq
+                                    (filter #(.isFile %)))]
+                      (future (parallel-parse-file file))))]
+        (doseq [f futures]
+            @f)
+        (let [result @parser-state]
+            (reset-state)
+            result)))
 
 
 (comment
     ;; возможные вызовы функции
-    (solution)
+    (time (solution))
     @parser-state
+    (reset-state)
     (solution :url "some-url")
     (solution :referrer "some-referrer")
     (solution :url "some-url" :referrer "some-referrer"))
