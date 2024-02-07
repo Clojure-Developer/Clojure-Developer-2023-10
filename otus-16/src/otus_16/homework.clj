@@ -1,9 +1,9 @@
 (ns otus-16.homework
     (:require [clojure.set :as set]))
 
-(def start-number-state {:total-bytes   0
-                         :bytes-per-url 0})
+(def log_indices {:ip 1 :identifier 2 :userid 3 :time 4 :request 5 :status 6 :size 7 :referrer 8 :user-agent 9})
 
+(def start-number-state {:total-bytes 0 :bytes-per-url 0})
 (def start-set-state {:urls-per-referrer #{}})
 
 (def number-state (atom start-number-state))
@@ -14,23 +14,25 @@
     (reset! number-state start-number-state)
     (reset! set-state start-set-state))
 
+(defn- parse-request [request]
+    (let [[method url http-version] (clojure.string/split request #" ")]
+        {:method method :url url :http-version http-version}))
+
 (defn parse-apache-log [log-line]
     (let [regex #"(\S+) (\S+) (\S+) \[([\w:/]+\s[\+\-]\d{4})\] \"(.*?)\" (\d{3}) (\S+) \"(.*?)\" \"(.*?)\""
           matcher (re-find regex log-line)]
         (if matcher
-            (let [request (nth matcher 5)
-                  [method url http-version] (clojure.string/split request #" ")]
-                {:ip         (nth matcher 1)
-                 :identifier (nth matcher 2)
-                 :userid     (nth matcher 3)
-                 :time       (nth matcher 4)
-                 :request    {:method       method
-                              :url          url
-                              :http-version http-version}
-                 :status     (nth matcher 6)
-                 :size       (parse-long (nth matcher 7))
-                 :referrer   (nth matcher 8)
-                 :user-agent (nth matcher 9)})
+            (let [parsed-request (parse-request (nth matcher (log_indices :request)))]
+                (merge
+                    {:ip         (nth matcher (log_indices :ip))
+                     :identifier (nth matcher (log_indices :identifier))
+                     :userid     (nth matcher (log_indices :userid))
+                     :time       (nth matcher (log_indices :time))
+                     :status     (nth matcher (log_indices :status))
+                     :size       (parse-long (nth matcher (log_indices :size)))
+                     :referrer   (nth matcher (log_indices :referrer))
+                     :user-agent (nth matcher (log_indices :user-agent))}
+                    {:request parsed-request}))
             :no-match)))
 
 
