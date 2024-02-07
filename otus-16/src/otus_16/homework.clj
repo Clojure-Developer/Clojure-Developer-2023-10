@@ -46,20 +46,24 @@
         (= (:referrer el) referrer)))
 
 (defn parse&persist-logs-portion [url referrer log-lines]
-    (let [thread-local-number-state (atom start-number-state)
-          thread-local-set-state (atom start-set-state)
-          parsed-lines (map parse-apache-log log-lines)]
-        (doseq [parsed-line parsed-lines]
-            (let [bytes (:size parsed-line)
-                  line-url (:url (:request parsed-line))
-                  line-referrer (:referrer parsed-line)]
-                (swap! thread-local-number-state update :total-bytes + bytes)
-                (if (or (= url line-url) (= url :all))
-                    (swap! thread-local-number-state update :bytes-per-url + bytes))
-                (if (or (= referrer line-referrer) (= referrer :all))
-                    (swap! thread-local-set-state update :urls-per-referrer conj line-url))))
-        (swap! number-state #(merge-with + % @thread-local-number-state))
-        (swap! set-state #(merge-with set/union % @thread-local-set-state))))
+    (let [parsed-lines (map parse-apache-log log-lines)
+          modified-states (reduce
+                              (fn [{:keys [total-numbers set-states]} parsed-line]
+                                  (let [bytes (:size parsed-line)
+                                        line-url (:url (:request parsed-line))
+                                        line-referrer (:referrer parsed-line)
+                                        total-numbers (update total-numbers :total-bytes + bytes)
+                                        total-numbers (if (or (= url line-url) (= url :all))
+                                                          (update total-numbers :bytes-per-url + bytes)
+                                                          total-numbers)
+                                        set-states (if (or (= referrer line-referrer) (= referrer :all))
+                                                       (update set-states :urls-per-referrer conj line-url)
+                                                       set-states)]
+                                      {:total-numbers total-numbers, :set-states set-states}))
+                              {:total-numbers start-number-state, :set-states start-set-state}
+                              parsed-lines)]
+        (swap! number-state #(merge-with + % (:total-numbers modified-states)))
+        (swap! set-state #(merge-with set/union % (:set-states modified-states)))))
 
 (defn parallel-parse-file [url referrer file]
     (with-open [rdr (clojure.java.io/reader file)]
@@ -73,7 +77,7 @@
                      (filter #(.isFile %)))]
         (doall (pmap (partial parallel-parse-file url referrer) files)))
     (let [result1 @number-state
-          result2 @set-state]                             ; TODO closure with atom?
+          result2 @set-state]                               ; TODO closure with atom?
         (reset-state)
         (merge result1 {:urls-per-referrer (count (:urls-per-referrer result2))})))
 
@@ -84,7 +88,7 @@
     @number-state
     @set-state
     (reset-state)
-    (solution :url "/random")
-    (solution :referrer "https://www.google.com/")
-    (solution :url "/%D1%81%D1%82%D0%BE%D1%8F%D1%82-%D0%BF%D0%B0%D1%81%D1%81%D0%B0%D0%B6%D0%B8%D1%80%D1%8B-%D0%B2-%D0%B0%D1%8D%D1%80%D0%BE%D0%BF%D0%BE%D1%80%D1%82%D1%83-%D0%BF%D0%BE%D1%81%D0%B0%D0%B4%D0%BE%D1%87%D0%BD%D1%8B%D0%B9-%D0%B4%D0%BE%D1%81%D0%BC%D0%BE%D1%82%D1%80/?p=4"
-              :referrer "https://www.google.com/"))
+    (time (solution :url "/random"))
+    (time (solution :referrer "https://www.google.com/"))
+    (time (solution :url "/%D1%81%D1%82%D0%BE%D1%8F%D1%82-%D0%BF%D0%B0%D1%81%D1%81%D0%B0%D0%B6%D0%B8%D1%80%D1%8B-%D0%B2-%D0%B0%D1%8D%D1%80%D0%BE%D0%BF%D0%BE%D1%80%D1%82%D1%83-%D0%BF%D0%BE%D1%81%D0%B0%D0%B4%D0%BE%D1%87%D0%BD%D1%8B%D0%B9-%D0%B4%D0%BE%D1%81%D0%BC%D0%BE%D1%82%D1%80/?p=4"
+                    :referrer "https://www.google.com/")))
