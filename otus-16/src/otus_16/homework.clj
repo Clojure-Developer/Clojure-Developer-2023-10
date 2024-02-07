@@ -1,12 +1,18 @@
-(ns otus-16.homework)
+(ns otus-16.homework
+    (:require [clojure.set :as set]))
 
-(def start-state {:total-bytes       0
-                  :bytes-per-url     0
-                  :urls-per-referrer {}})
-(def parser-state (atom start-state))
+(def start-number-state {:total-bytes   0
+                         :bytes-per-url 0})
+
+(def start-set-state {:urls-per-referrer #{}})
+
+(def number-state (atom start-number-state))
+
+(def set-state (atom start-set-state))
 
 (defn reset-state []
-    (reset! parser-state start-state))
+    (reset! number-state start-number-state)
+    (reset! set-state start-set-state))
 
 (defn parse-apache-log [log-line]
     (let [regex #"(\S+) (\S+) (\S+) \[([\w:/]+\s[\+\-]\d{4})\] \"(.*?)\" (\d{3}) (\S+) \"(.*?)\" \"(.*?)\""
@@ -39,31 +45,25 @@
     (fn [el]
         (= (:referrer el) referrer)))
 
-(defn parse&persist-logs-portion-? [url referrer log-lines]
-    (let [parsed-lines (map parse-apache-log log-lines)
-          total-bytes (size-reducer parsed-lines)
-          ;bytes-per-url (if (= url :all)                    ;WARNING
-          ;                  total-bytes
-          ;                  (size-reducer (filter (has-url? url) parsed-lines)))
-          ;urls-per-referrer (if (= referrer :all)
-          ;                       (count parsed-lines)
-          ;                       (count (filter (has-referrer? referrer) parsed-lines)))
-          ]
-        (swap! parser-state
-               (fn [state]
-                   (-> state
-                       (update :total-bytes + total-bytes)
-                       #_(update :bytes-per-url + bytes-per-url)
-                       #_(set/union :urls-per-referrer urls-per-referrer)
-                       )))))
-
 (defn parse&persist-logs-portion [url referrer log-lines]
-    (let [total (reduce #(+ %1 (:size %2)) 0 (map parse-apache-log log-lines))]
-        (swap! parser-state update :total-bytes (partial + total))))
+    (let [thread-local-number-state (atom start-number-state)
+          thread-local-set-state (atom start-set-state)
+          parsed-lines (map parse-apache-log log-lines)]
+        (doseq [parsed-line parsed-lines]
+            (let [bytes (:size parsed-line)
+                  line-url (:url (:request parsed-line))
+                  line-referrer (:referrer parsed-line)]
+                (swap! thread-local-number-state update :total-bytes + bytes)
+                (if (or (= url line-url) (= url :all))
+                    (swap! thread-local-number-state update :bytes-per-url + bytes))
+                (if (or (= referrer line-referrer) (= referrer :all))
+                    (swap! thread-local-set-state update :urls-per-referrer conj line-url))))
+        (swap! number-state #(merge-with + % @thread-local-number-state))
+        (swap! set-state #(merge-with set/union % @thread-local-set-state))))
 
 (defn parallel-parse-file [url referrer file]
     (with-open [rdr (clojure.java.io/reader file)]
-        (doall (pmap (partial parse&persist-logs-portion-? url referrer) (partition-all 100000 (line-seq rdr))))))
+        (doall (pmap (partial parse&persist-logs-portion url referrer) (partition-all 100000 (line-seq rdr))))))
 
 (defn solution [& {:keys [url referrer]
                    :or   {url :all referrer :all}}]
@@ -72,16 +72,19 @@
                      file-seq
                      (filter #(.isFile %)))]
         (doall (pmap (partial parallel-parse-file url referrer) files)))
-    (let [result @parser-state]                             ; TODO closure with atom?
+    (let [result1 @number-state
+          result2 @set-state]                             ; TODO closure with atom?
         (reset-state)
-        result))
+        (merge result1 {:urls-per-referrer (count (:urls-per-referrer result2))})))
 
 
 (comment
     ;; возможные вызовы функции
     (time (solution))
-    @parser-state
+    @number-state
+    @set-state
     (reset-state)
-    (solution :url "some-url")
-    (solution :referrer "some-referrer")
-    (solution :url "some-url" :referrer "some-referrer"))
+    (solution :url "/random")
+    (solution :referrer "https://www.google.com/")
+    (solution :url "/%D1%81%D1%82%D0%BE%D1%8F%D1%82-%D0%BF%D0%B0%D1%81%D1%81%D0%B0%D0%B6%D0%B8%D1%80%D1%8B-%D0%B2-%D0%B0%D1%8D%D1%80%D0%BE%D0%BF%D0%BE%D1%80%D1%82%D1%83-%D0%BF%D0%BE%D1%81%D0%B0%D0%B4%D0%BE%D1%87%D0%BD%D1%8B%D0%B9-%D0%B4%D0%BE%D1%81%D0%BC%D0%BE%D1%82%D1%80/?p=4"
+              :referrer "https://www.google.com/"))
