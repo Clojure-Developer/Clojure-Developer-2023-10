@@ -1,0 +1,19 @@
+;; shadow-cljs configuration
+{:dev-http {8080 "public"}
+ 
+ :source-paths
+ ["src/dev"
+  "src/main"
+  "src/test"]
+
+ :dependencies
+ []
+
+ :builds
+ {:frontend
+  {:target :browser
+   :modules {:main {:init-fn otus-26.app/init}}}
+
+  :script {:target :node-script
+           :main otus-26.script/hello
+           :output-to "out/script.js"}}}
