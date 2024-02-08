@@ -9,12 +9,12 @@
   ([] (start-server {}))
   ([opts]
    (let [server (jetty/run-jetty #'web/handler opts)]
-     (println "Server started.")
+     (println "Server started on port:" (:port opts 80))
      server)))
 
 (defn stop-server [server]
   (.stop ^Server server)
-  (println "Server stopped."))
+  (println "Server stopped"))
 
 (defn -main [& _]
   (let [server (start-server)]

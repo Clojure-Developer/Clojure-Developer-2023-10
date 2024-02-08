@@ -2,12 +2,15 @@
   :description "URL shortener app"
 
   :source-paths ["src" "resources"]
+  :resource-paths ["resources"]
   
-  :dependencies [;; Backend
+  :dependencies [
+                 ;; Backend
                  [org.clojure/clojure "1.11.1"]
                  [ring/ring-jetty-adapter "1.11.0"]
                  [ring/ring-json "0.5.1"]
                  [compojure "1.7.1"]
+                 [org.slf4j/slf4j-simple "2.0.10"]
                  
                  ;; Frontend
                  [reagent "1.2.0"]
@@ -23,7 +26,9 @@
 
   :uberjar-name "url-shortener.jar"
 
-  :resource-paths ["resources"]
+  :profiles {:dev {:source-paths ["dev"]
+                   :dependencies [[ring/ring-devel "1.11.0"]]}
 
-  :profiles {:dev {:dependencies [[ring/ring-devel "1.11.0"]]}
+             :repl {:repl-options {:init-ns user}}
+
              :uberjar {:aot :all}})
