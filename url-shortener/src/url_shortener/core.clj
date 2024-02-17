@@ -1,63 +1,78 @@
 (ns url-shortener.core
-  (:require
-   [clojure.string :as string]))
+  (:require [clojure.string :as string]))
+
+;; Consts
+(def ^:const alphabet-size 62)
+
+(def alphabet
+  "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz")
 
 
-(def symbols
-  "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+;; Logic
+(defn- get-idx [i]
+  (Math/floor (/ i alphabet-size)))
 
+(defn- get-character-by-idx [i]
+  (get alphabet (rem i alphabet-size)))
 
-;; =============================================================================
-;; Number -> String
-;; =============================================================================
-
-
-(defn get-idx [i]
-  (Math/floor (/ i 62)))
-
-
-(defn get-symbol-by-idx [i]
-  (get symbols (rem i 62)))
-
-
-(defn id->url [id]
-  (let [idx-sequence  (iterate get-idx id)
-        valid-idxs    (take-while #(> % 0) idx-sequence)
-        code-sequence (map get-symbol-by-idx valid-idxs)]
-    (string/join (reverse code-sequence))))
-
-
-
+(defn int->id [id]
+  (if (< id alphabet-size)
+    (str (get-character-by-idx id))
+    (let [codes (->> (iterate get-idx id)
+                     (take-while pos?)
+                     (map get-character-by-idx))]
+      (string/join (reverse codes)))))
 
 (comment
- (get-idx 1000)
- (Math/floor (/ 1000 62))
+  (int->id 0)                   ; => "0"
+  (int->id alphabet-size)       ; => "10"
+  (int->id 9999999999999)       ; => "2q3Rktod"
+  (int->id 9223372036854775807) ; => "AzL8n0Y58W7"
+  )
 
- (take 10 (iterate get-idx 10))
- (take 10 (iterate get-idx 100))
- (take 10 (iterate get-idx 5000))
-
- (get-symbol-by-idx 5000)
-
- (id->url 12345) ;; "dnh"
- (id->url 3294233727)) ;;"dK6qQd"
-
-
-;; =============================================================================
-;; String -> Number
-;; =============================================================================
-
-
-(defn url->id [url]
-  (let [url-symbols (seq url)]
-    (reduce
-     (fn [id symbol]
-       (+ (* id 62)
-          (string/index-of symbols symbol)))
-     0
-     url-symbols)))
-
+(defn id->int [id]
+  (reduce (fn [id ch]
+            (+ (* id alphabet-size)
+               (string/index-of alphabet ch)))
+          0
+          id))
 
 (comment
- (url->id "dnh") ;; 12345
- (url->id "dK6qQd")) ;; 3294233727
+  (id->int "0")       ; => 0
+  (id->int "z")       ; => 61
+  (id->int "clj")     ; => 149031
+  (id->int "Clojure") ; => 725410830262
+  )
+
+
+;; State
+(defonce ^:private *counter (atom 0))
+(defonce ^:private *mapping (ref {}))
+
+
+;; API
+(defn shorten!
+  ([url]
+   (let [id (int->id (swap! *counter inc))]
+     (or (shorten! url id)
+         (recur url))))
+  ([url id]
+   (dosync
+    (when-not (@*mapping id)
+      (alter *mapping assoc id url)
+      id))))
+
+(defn url-for [id]
+  (@*mapping id))
+
+(defn list-all []
+  (mapv #(-> {:id (key %) :url (val %)}) @*mapping))
+
+(comment
+  (shorten! "http://clojurebook.com")
+  (shorten! "https://clojure.org" "clj")
+  (shorten! "http://id-already-exists.com" "clj")
+  (shorten! "https://clojurescript.org" "cljs")
+
+  (url-for "clj")
+  (list-all))
