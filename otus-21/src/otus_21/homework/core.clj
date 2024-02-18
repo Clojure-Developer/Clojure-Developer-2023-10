@@ -16,14 +16,6 @@
              :d.ext 5626152
              :k     7214296}})
 
-(defn sum-of-sizes [input]
-    "По журналу сеанса работы в терминале воссоздаёт файловую систему
-  и подсчитывает сумму размеров директорий, занимающих на диске до
-  100000 байт (сумма размеров не учитывает случай, когда найденные
-  директории вложены друг в друга: размеры директорий всё так же
-  суммируются)."
-    0)
-
 (defn map-zipper [m]
     (z/zipper
         (fn [x] (or (map? x) (map? (nth x 1))))
@@ -37,29 +29,17 @@
 (defn spaces-split [s]
     (str/split s #" "))
 
-(defn command-chooser [curr-command]
-    (condp (comp seq re-seq) curr-command
-        #"\$ cd /" z/root
-        #"\$ cd \.\." z/up
-        #"\$ cd .+" :>> println
-
-        ))
-
 (def extract-arg-as-kw
     (comp keyword last spaces-split first))
 
 (def extract-file-size
     (comp parse-long first spaces-split first))
 
-
 (defn find-in-lazy [lazy key]
     (first (filter #(= (first (first %)) key) lazy)))
 
-;(defn find-in-lazy
-;    [lazy key]
-;    (let [pred #(= key %)]
-;     (some #(when (pred %) %) lazy)))
 
+;Maybe some is better?
 (some #(when (even? %) %) [1 2 3 4])
 
 (defn find-direction [zipper re-seq]
@@ -72,18 +52,12 @@
     (let [folder-kw (extract-arg-as-kw re-seq)]
         (z/append-child zipper {folder-kw {}})))
 
-(comment
-
-    (z/root (add-dir (map-zipper {}) '("dir asd")))
-
-    )
-
 (defn add-file [zipper re-seq]
     (let [file-kw (extract-arg-as-kw re-seq)
           size (extract-file-size re-seq)]
         (z/append-child zipper {file-kw size})))
 
-(defn smart-fn [zipper command]
+(defn command-dispatch [zipper command]
     (condp (comp seq re-seq) command
         #"\$ cd /" :>> (constantly (map-zipper (z/root zipper)))
         #"\$ cd \.\." :>> (constantly (z/up zipper))
@@ -92,12 +66,12 @@
         #"dir .+" :>> (partial add-dir zipper)
         #"\d+ .+" :>> (partial add-file zipper)
         ))
-(defn solve []
-    (z/root (reduce smart-fn (map-zipper {}) (str/split-lines input))))
 
+(defn construct-tree []
+    (z/root (reduce command-dispatch (map-zipper {}) (str/split-lines input))))
 (comment
 
-    (= test-map (solve))
+    (= test-map (construct-tree))
 
     (-> {}
         map-zipper
@@ -127,35 +101,10 @@
         )
     )
 
-(comment
-    (solve)
-    ((fn [x] (or (map? x) (map? (nth x 1)))) [:i 584])
-    (nth (first test-map) 1)
-    (seq test-map)
-
-    (def m {:b 3 :a {:x true :y false} :c 4})
-
-    ;; Note that hash-maps are not ordered:
-    (-> (map-zipper m) z/down z/right z/right z/node)
-
-    (def asd (first (drop-while #(= (first %) :b) (iterate z/right (z/leftmost (z/down (map-zipper m)))))))
-
-    (z/root asd)
-
-    (first (iterate z/right (z/leftmost (z/down (map-zipper m)))))
-
-    (command-chooser "$ cd /")
-    (command-chooser "cd ..")
-
-    (command-chooser "$ cd 123")
-    ((comp parse-long second #(str/split % #" ") first) '("cd 123"))
-    ((comp #(str/split % #" ") first) '("cd 123"))
-
-
-    (-> {}
-        map-zipper
-        (z/append-child {:a {}})
-        (z/append-child {:b.txt 14848514})
-        (z/append-child [:c.dat 8504156])
-        z/root)
-    )
+(defn sum-of-sizes [input]
+    "По журналу сеанса работы в терминале воссоздаёт файловую систему
+  и подсчитывает сумму размеров директорий, занимающих на диске до
+  100000 байт (сумма размеров не учитывает случай, когда найденные
+  директории вложены друг в друга: размеры директорий всё так же
+  суммируются)."
+    0)
