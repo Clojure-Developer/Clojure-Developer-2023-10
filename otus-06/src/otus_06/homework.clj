@@ -1,4 +1,7 @@
-(ns otus-06.homework)
+(ns otus-06.homework
+  (:require [clojure.string :as string])
+  (:require [clojure.java.io :as io])
+  (:require [clojure.set :as set]))
 
 ;; Загрузить данные из трех файлов на диске.
 ;; Эти данные сформируют вашу базу данных о продажах.
@@ -94,3 +97,124 @@
 
 
 ;; Файлы находятся в папке otus-06/resources/homework
+
+;; VARS
+;;**************************************************
+
+(def files (map #(str "homework/" %) ["cust.txt" "prod.txt" "sales.txt"]))
+
+;; запросы
+(def menu "\n*** Sales Menu ***
+------------------
+1. Display Customer Table
+2. Display Product Table
+3. Display Sales Table
+4. Total Sales for Customer
+5. Total Count for Product
+6. Exit
+           
+Enter an option\n")
+
+(def cust-req "Enter a customer name\n")
+(def item-req "Enter an item\n")
+
+;; ключи для чтения и отображения
+(def cust-keys [:custID :name :address :phoneNumber])
+(def prod-keys [:prodID :itemDescription :unitCost])
+(def sales-keys [:salesID :custID :prodID :itemCount])
+(def sales-keys-to-show [:salesID :name :itemDescription :itemCount])
+
+(def key-names [cust-keys prod-keys sales-keys])
+
+;; ключи для конвертации и расчета total-sum
+(def keys-to-int [:itemCount :prodID :custID :salesID])
+(def keys-to-double [:unitCost])
+(def keys-to-count-total-sum [:unitCost :itemCount])
+
+;; ключи для агрегации
+(def keys-to-cust-aggr [:name :totalCost])
+(def keys-to-item-aggr [:itemDescription :itemCount])
+
+;; FUNCTIONS
+;;**********************************************************************
+
+(defn read-to-maps 
+  "читаем файл с соответствующими keys в список мап" 
+  [f k] 
+  (let [r (io/reader (io/resource f))] 
+    (->> (line-seq r) 
+         (map #(string/split % #"\|")) 
+         (map #(zipmap k %)))))
+
+(defn update-mult-vals 
+  "преобразуем несколько столбов (keys), например, конвертируем" 
+  [map vals fun] 
+  (reduce #(update-in % [%2] fun) map vals))
+
+(defn add-new-key 
+  "добавляем новый столбец (key), рассчитанный из нескольких существующих" 
+  [map keys name fun] 
+  (assoc map name (reduce fun (vals (select-keys map keys)))))
+
+(defn select-data 
+  "выделяем несколько столбцов и преобразуем каждую строку к виду мапа (ID - данные)" 
+  [keys-to-select key-to-first coll] 
+  (->> coll 
+       (map #(select-keys % keys-to-select)) 
+       (map #((fn [x key] (merge {(key x) (dissoc x key)})) % key-to-first))))
+
+(defn aggregate 
+  "агрегируем данные aggr-key, группируя по name-key" 
+  [[name-key aggr-key] coll] 
+  (->> coll 
+       (map #(select-keys % [name-key aggr-key])) 
+       (group-by name-key) 
+       (map (fn [[name vals]] 
+              {name-key name 
+               aggr-key (reduce + (map aggr-key vals))})) 
+       (map #((fn [x key] {(key x) (dissoc x key)}) % name-key)) 
+       (reduce merge)))
+
+(defn aggregate-and-filter 
+  "агрегируем и фильтруем результат по запрошенному значению name-key" 
+  [[name-key aggr-key] message coll] 
+  (println message) 
+  (flush) 
+  (let [filter-input (read-line)] 
+    (->> coll 
+         (aggregate [name-key aggr-key]) 
+         (#(find % filter-input)))))
+
+(defn print-result 
+  "печатаем либо результат, либо уточняющий запрос" 
+  [x] 
+  (if-not (nil? x) 
+    (run! println x) 
+    (println "Precise your input\n")))
+
+
+;; собираем все данные в одну таблицу (список мап)
+(def full-data (->> (map #(read-to-maps %1 %2) files key-names)
+                     (reduce set/join)
+                     (map (fn [x] (update-mult-vals x keys-to-int #(Integer/parseInt %))))
+                     (map (fn [x] (update-mult-vals x keys-to-double parse-double)))
+                     (map (fn [x] (add-new-key x keys-to-count-total-sum :totalCost *)))))
+
+(defn main 
+  "результирующая функция"
+  [coll] 
+  (println menu) 
+  (flush) 
+  (let [x (read-line)] 
+    (println (str x "\n")) 
+    (->> (cond 
+           (= x "1") (select-data cust-keys :custID coll) 
+           (= x "2") (select-data prod-keys :prodID coll) 
+           (= x "3") (select-data sales-keys-to-show :salesID coll) 
+           (= x "4") (aggregate-and-filter keys-to-cust-aggr cust-req coll) 
+           (= x "5") (aggregate-and-filter keys-to-item-aggr item-req coll) 
+           (= x "6") ["Good Bye\n"]) 
+         print-result) 
+    (if (not= x "6") (main coll) nil)))
+ 
+(main full-data)

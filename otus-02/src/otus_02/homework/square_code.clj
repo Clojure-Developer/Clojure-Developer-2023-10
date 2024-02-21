@@ -1,4 +1,5 @@
-(ns otus-02.homework.square-code)
+(ns otus-02.otus-02.homework.square-code
+(:require [clojure.math :as math] [clojure.string :as string]))
 
 ;; Реализовать классический метод составления секретных сообщений, называемый `square code`.
 ;; Выведите закодированную версию полученного текста.
@@ -48,9 +49,31 @@
 "aohghn "
 "sseoau "
 
+(defn encode-string [input]
+  (let [st    (->> input string/lower-case
+                   (filter #(Character/isLetter %)))
+        sqr   (math/sqrt (count st))
+        rnd   (math/round sqr)
+        [x y] (if (= (int (math/ceil sqr)) rnd) [(inc rnd) rnd] [rnd rnd])]
+    (->> (repeat (inc x) (range (inc y)))
+         flatten
+         (map vector (concat st (repeat \space)))
+         (sort-by second)
+         (map first) 
+         drop-last 
+         (apply str))))
 
-
-(defn encode-string [input])
-
-
-(defn decode-string [input])
+(defn decode-string [input]
+  (let [[x y]  (->> (range)
+                    (map #(vector % %))
+                    flatten 
+                    (#(map vector % (drop 1 %)))
+                    (drop-while #(< (reduce * %) (count input)))
+                    first)]
+    (->> (repeat x (range y))
+         flatten
+         (map vector (concat input (repeat \space)))
+         (sort-by second) 
+         (map first) 
+         (apply str) 
+         (string/trim))))
