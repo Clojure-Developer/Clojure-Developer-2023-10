@@ -27,26 +27,28 @@
                  :request    parsed-request})
             :no-match)))
 
+(defn update-helper:bytes-per-url [url parsed-line size]
+    (fn [acc]
+        (if (or (= url (:url (:request parsed-line))) (= url :all))
+            (+ acc size)
+            acc)))
+
+(defn update-helper:urls-per-referrer [referrer parsed-line]
+    (fn [acc]
+        (if (or (= referrer (:referrer parsed-line)) (= referrer :all))
+            (conj acc (:url (:request parsed-line)))
+            acc)))
+
 (defn parse-logs-portion [url referrer log-lines]
     (let [parsed-lines (map parse-apache-log log-lines)]
         (reduce
-            (fn [acc parsed-line]
-                (let [bytes (:size parsed-line)
-                      line-url (:url (:request parsed-line))
-                      line-referrer (:referrer parsed-line)
-                      total-bytes (+ (acc :total-bytes) bytes)
-                      bytes-per-url (if (or (= url line-url) (= url :all))
-                                        (+ (:bytes-per-url acc) bytes)
-                                        (:bytes-per-url acc))
-                      urls-per-referrer (if (or (= referrer line-referrer) (= referrer :all))
-                                            (conj (:urls-per-referrer acc) line-url)
-                                            (:urls-per-referrer acc))]
-                    {:total-bytes       total-bytes
-                     :bytes-per-url     bytes-per-url
-                     :urls-per-referrer urls-per-referrer}))
+            (fn [acc {:keys [size] :as parsed-line}]
+                (-> acc
+                    (update :total-bytes + size)
+                    (update :bytes-per-url (update-helper:bytes-per-url url parsed-line size))
+                    (update :urls-per-referrer (update-helper:urls-per-referrer referrer parsed-line))))
             start-result-state
             parsed-lines)))
-
 
 (def merge-results
     (partial merge-with (fn [x y]
@@ -73,16 +75,15 @@
                      clojure.java.io/file
                      file-seq
                      (filter #(.isFile %)))
-          result-with-urls (reduce-results (pmap (partial parallel-parse-file url referrer) files))]
+          result-with-urls (->> files
+                                (pmap (partial parallel-parse-file url referrer))
+                                (reduce-results))]
         (update result-with-urls :urls-per-referrer count)))
 
 
 (comment
     ;; возможные вызовы функции
     (time (solution))
-    @number-state
-    @set-state
-    (reset-state)
     (time (solution :url "/random"))
     (time (solution :referrer "https://www.google.com/"))
     (time (solution :url "/%D1%81%D1%82%D0%BE%D1%8F%D1%82-%D0%BF%D0%B0%D1%81%D1%81%D0%B0%D0%B6%D0%B8%D1%80%D1%8B-%D0%B2-%D0%B0%D1%8D%D1%80%D0%BE%D0%BF%D0%BE%D1%80%D1%82%D1%83-%D0%BF%D0%BE%D1%81%D0%B0%D0%B4%D0%BE%D1%87%D0%BD%D1%8B%D0%B9-%D0%B4%D0%BE%D1%81%D0%BC%D0%BE%D1%82%D1%80/?p=4"
