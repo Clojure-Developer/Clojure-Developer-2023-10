@@ -3,7 +3,29 @@
               [clojure.walk :as w]
               [clojure.zip :as z]))
 
-(def input "$ cd /\n$ ls\ndir a\n14848514 b.txt\n8504156 c.dat\ndir d\n$ cd a\n$ ls\ndir e\n29116 f\n2557 g\n62596 h.lst\n$ cd e\n$ ls\n584 i\n$ cd ..\n$ cd ..\n$ cd d\n$ ls\n4060174 j\n8033020 d.log\n5626152 d.ext\n7214296 k")
+(def input "$ cd /
+$ ls
+dir a
+14848514 b.txt
+8504156 c.dat
+dir d
+$ cd a
+$ ls
+dir e
+29116 f
+2557 g
+62596 h.lst
+$ cd e
+$ ls
+584 i
+$ cd ..
+$ cd ..
+$ cd d
+$ ls
+4060174 j
+8033020 d.log
+5626152 d.ext
+7214296 k")
 
 (defn map-zipper [m]
     (z/zipper
@@ -28,8 +50,6 @@
 (defn find-in-lazy [lazy key]
     (first (filter #(= (first (first %)) key) lazy)))
 
-(some #(when (even? %) %) [1 2 3 4])
-
 (defn find-direction [zipper re-seq]
     (let [folder-kw (extract-arg-as-kw re-seq)
           curr-layer (iterate z/right (z/down zipper))
@@ -47,10 +67,10 @@
 
 (defn command-dispatch [zipper command]
     (condp (comp seq re-seq) command
-        #"\$ cd /" :>> (constantly (map-zipper (z/root zipper)))
-        #"\$ cd \.\." :>> (constantly (z/up zipper))
+        #"\$ cd /" (map-zipper (z/root zipper))
+        #"\$ cd \.\." (z/up zipper)
         #"\$ cd .+" :>> (partial find-direction zipper)
-        #"\$ ls" :>> (constantly zipper)
+        #"\$ ls" zipper
         #"dir .+" :>> (partial add-dir zipper)
         #"\d+ .+" :>> (partial add-file zipper)
         ))
@@ -75,3 +95,6 @@
           acc (atom 0)]
         (w/postwalk (partial evaluate acc) tree)
         @acc))
+
+(comment
+    (sum-of-sizes input))
