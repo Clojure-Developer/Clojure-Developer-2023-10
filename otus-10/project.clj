@@ -5,6 +5,6 @@
   :main ^:skip-aot otus-10.homework
   :target-path "target/%s"
   :profiles {:dev {}
-             :uberjar {:aot :all
+             :uberjar {:aot [otus-10.homework]
                        :jvm-opts ["-Dclojure.compiler.direct-linking=true"]}})
 
