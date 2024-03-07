@@ -1,0 +1,3 @@
+18:57:29.592 [nREPL-session-b875359f-f3ce-40e2-a7a2-262c387ec591] INFO  otus-30.core - Hello world
+19:01:07.245 [nREPL-session-b875359f-f3ce-40e2-a7a2-262c387ec591] WARN  otus-30.core - Hello world
+19:01:15.257 [nREPL-session-b875359f-f3ce-40e2-a7a2-262c387ec591] ERROR otus-30.core - Hello world
